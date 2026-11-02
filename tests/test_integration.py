@@ -207,3 +207,34 @@ def test_real_siri_filtering():
     )
     assert [v["course"] for v in res] == ["520_T1A-080AM_00402014"]
     assert res[0]["confirme"] is True
+
+
+def test_attributs_hors_historique():
+    """Les attributs volumineux ne doivent pas être écrits dans la base (usure de l'eMMC)."""
+    from custom_components.tcl_lyon.sensor import TclDepartureSensor
+    assert {"departs", "vehicules", "alertes"} <= TclDepartureSensor._unrecorded_attributes
+
+
+async def test_historique_reel(recorder_mock, hass: HomeAssistant, api_mock):
+    """Avec le vrai recorder : l'état est historisé, pas la liste des départs."""
+    from homeassistant.components.recorder.history import get_significant_states
+    from pytest_homeassistant_custom_component.components.recorder.common import (
+        async_wait_recording_done,
+    )
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={"username": "u", "password": "p"},
+        options={"tracks": [{"stop_id": "30170", "stop_name": "Part-Dieu", "ligne": "C3",
+                             "direction": "Gare Saint-Paul"}], "velov": [], "positions_url": ""},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await async_wait_recording_done(hass)
+    entity_id = next(s.entity_id for s in hass.states.async_all("sensor"))
+    assert hass.states.get(entity_id).attributes["departs"]  # présent dans l'état courant...
+    hist = await hass.async_add_executor_job(
+        get_significant_states, hass, dt_util.utcnow() - timedelta(hours=1), None, [entity_id]
+    )
+    recorded = hist[entity_id][-1].attributes
+    assert "departs" not in recorded and "ligne" in recorded  # ...mais pas dans l'historique

@@ -183,6 +183,12 @@ async def async_setup_entry(
 
 class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
     _attr_has_entity_name = True
+    # Attributs volumineux et changeant toutes les 20 s : exclus de l'historique (recorder)
+    # pour ne pas faire grossir la base ni user la mémoire eMMC (Home Assistant Green).
+    _unrecorded_attributes = frozenset(
+        {"departs", "alertes", "vehicules", "arret_position", "carte_active",
+         "carte_disponible", "carte_orientation", "positions_ligne"}
+    )
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_attribution = "Données TCL / SYTRAL via data.grandlyon.com"
 
@@ -281,6 +287,8 @@ class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
 
 class VelovSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
     """Nombre de vélos disponibles dans une station Vélo'v."""
+
+    _unrecorded_attributes = frozenset({"maj", "statut", "velos_mecaniques", "places"})
 
     _attr_has_entity_name = True
     _attr_icon = "mdi:bicycle"

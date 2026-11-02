@@ -148,6 +148,18 @@ Côté Home Assistant :
 - passages filtrés par arrêt côté serveur quand c'est possible. Sinon, tout le réseau est téléchargé et l'intervalle passe à 60 s ;
 - positions des bus (environ 600 Ko) téléchargées seulement pendant que la carte est ouverte ;
 - liste complète des arrêts libérée dès que les coordonnées utiles sont connues.
+- attributs volumineux (`departs`, `alertes`, `vehicules`…) exclus de l'historique : la base de données
+  ne grossit pas et la mémoire eMMC (Home Assistant Green) ne s'use pas. Seul l'état (les minutes
+  avant le prochain départ) est historisé. Pour ne rien historiser du tout :
+
+  ```yaml
+  # configuration.yaml
+  recorder:
+    exclude:
+      entity_globs:
+        - sensor.arret_tcl_*
+        - sensor.velo_v_*
+  ```
 
 ## Et l'intégration officielle « Data Grand Lyon » ?
 

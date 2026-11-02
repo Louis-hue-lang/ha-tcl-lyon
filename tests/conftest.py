@@ -6,7 +6,11 @@ pytest_plugins = "pytest_homeassistant_custom_component"
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+def auto_enable_custom_integrations(request):
+    # La base de l'historique doit être préparée avant Home Assistant
+    if "recorder_mock" in request.fixturenames:
+        request.getfixturevalue("recorder_db_url")
+    request.getfixturevalue("enable_custom_integrations")
     yield
 
 
