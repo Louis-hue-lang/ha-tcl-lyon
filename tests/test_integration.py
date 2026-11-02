@@ -177,7 +177,7 @@ async def test_card_served(hass: HomeAssistant, hass_client, api_mock):
     client = await hass_client()
     r = await client.get("/tcl_lyon/tcl-departures-card.js")
     assert r.status == 200 and "tcl-departures-card" in await r.text()
-    r = await client.get("/tcl_lyon/maplibre/maplibre-gl.js")
+    r = await client.get("/tcl_lyon/leaflet/leaflet.js")
     assert r.status == 200
 
 

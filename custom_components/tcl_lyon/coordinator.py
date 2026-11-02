@@ -21,6 +21,7 @@ from .const import (
     CONF_VELOV_ID,
     DOMAIN,
     SCAN_INTERVAL,
+    SCAN_INTERVAL_FULL_DOWNLOAD,
     URL_POSITIONS,
     VELOV_INTERVAL,
 )
@@ -63,6 +64,7 @@ class TclCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             for sid in missing:
                 stop = await self.api.async_get_stop(sid)
                 self._stop_positions[sid] = stop["position"] if stop else None
+            self.api.clear_stops_cache()
         except TclError as err:
             _LOGGER.debug("Coordonnées des arrêts indisponibles : %s", err)
 
@@ -118,6 +120,12 @@ class TclCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except TclError as err:
             raise UpdateFailed(str(err)) from err
+        if self.api.server_filter_supported is False and self.update_interval != SCAN_INTERVAL_FULL_DOWNLOAD:
+            _LOGGER.info(
+                "Le filtrage par arrêt n'est pas disponible : mise à jour toutes les %s s "
+                "pour ménager l'appareil", SCAN_INTERVAL_FULL_DOWNLOAD.seconds,
+            )
+            self.update_interval = SCAN_INTERVAL_FULL_DOWNLOAD
         if stop_ids:
             await self._refresh_alertes(now)
         await self._refresh_velov(now, velov_ids)

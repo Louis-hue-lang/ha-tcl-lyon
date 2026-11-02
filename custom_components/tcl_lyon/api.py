@@ -396,6 +396,14 @@ class TclApi:
         ]
         return sorted(found, key=lambda s: s["nom"])[:60]
 
+    @property
+    def server_filter_supported(self) -> bool | None:
+        return self._filter_supported
+
+    def clear_stops_cache(self) -> None:
+        """Libère la liste complète des arrêts (environ 4 000 entrées) une fois devenue inutile."""
+        self._stops = None
+
     async def async_get_stop(self, stop_id: str) -> dict[str, Any] | None:
         return next((s for s in await self.async_get_stops() if s["id"] == stop_id), None)
 

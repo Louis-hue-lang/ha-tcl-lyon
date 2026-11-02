@@ -55,7 +55,7 @@ Chaque ligne suivie crée un capteur, par exemple `sensor.arret_tcl_bellecour_c2
 Chaque station Vélo'v crée un capteur `sensor.velo_v_<station>_velos_disponibles`, avec les attributs
 `places`, `capacite`, `velos_electriques`, `velos_mecaniques` et `statut`.
 
-Rafraîchissements : passages toutes les 20 s, Vélo'v toutes les 60 s, alertes toutes les 5 min.
+Rafraîchissements : passages toutes les 20 s, Vélo'v toutes les 2 min, alertes toutes les 5 min.
 Les positions des bus ne sont téléchargées **que pendant que la carte est ouverte**, toutes les 20 s.
 Le flux pèse environ 600 Ko : un téléchargement permanent représenterait près de 3 Go par jour.
 
@@ -135,6 +135,20 @@ par l'éditeur YAML du tableau, ou ouvre l'URL avec `?edit=1`.
   **Home Assistant Companion** (Paramètres → Companion app → *Garder l'écran allumé*).
 - Avec Fully Kiosk, active *Keep Screen On*, *Start on boot* et la réduction de luminosité la nuit.
 
+## Légèreté (pensé pour un Echo Show 8 de 1re génération)
+
+Côté écran (carte Lovelace) :
+- elle ne se redessine que si un capteur TCL a changé, et non à chaque changement d'état de la maison ;
+- le DOM n'est modifié que si le texte affiché change. Le compte à rebours est recalculé toutes les 15 s ;
+- aucune animation permanente ;
+- la carte des bus utilise Leaflet (150 Ko, sans WebGL). Elle n'est chargée qu'à la première ouverture,
+  reste statique (ni glisser, ni zoom) et est libérée à la fermeture.
+
+Côté Home Assistant :
+- passages filtrés par arrêt côté serveur quand c'est possible. Sinon, tout le réseau est téléchargé et l'intervalle passe à 60 s ;
+- positions des bus (environ 600 Ko) téléchargées seulement pendant que la carte est ouverte ;
+- liste complète des arrêts libérée dès que les coordonnées utiles sont connues.
+
 ## Et l'intégration officielle « Data Grand Lyon » ?
 
 Home Assistant intègre aussi, depuis peu, une intégration officielle [Data Grand Lyon](https://www.home-assistant.io/integrations/data_grand_lyon).
@@ -152,7 +166,7 @@ Les deux peuvent coexister. Ce module va plus loin pour un écran de départs :
 
 ## Notes
 
-- La carte utilise [MapLibre GL](https://maplibre.org/) (licence BSD), fourni avec le module.
+- La carte utilise [Leaflet](https://leafletjs.com/) (licence BSD), fourni avec le module.
   Les fonds de carte se chargent depuis Internet.
 - Tests : `pip install pytest-homeassistant-custom-component`, puis `pytest`.
 
