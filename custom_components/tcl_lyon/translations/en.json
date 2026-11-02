@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Compte data.grandlyon.com",
+        "description": "Identifiants de ton compte data.grandlyon.com (accès au jeu de données « Prochains passages temps réel TCL » requis).",
+        "data": {
+          "username": "Email",
+          "password": "Mot de passe"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnexion data.grandlyon.com",
+        "data": {
+          "username": "Email",
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Identifiants refusés ou accès au jeu de données non accordé.",
+      "cannot_connect": "Impossible de joindre data.grandlyon.com."
+    },
+    "abort": {
+      "already_configured": "Ce compte est déjà configuré.",
+      "reauth_successful": "Reconnexion réussie."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Lignes suivies",
+        "description": "Actuellement suivies :\n{tracks}",
+        "menu_options": {
+          "search": "Ajouter un arrêt / des lignes",
+          "remove": "Retirer des lignes"
+        }
+      },
+      "search": {
+        "title": "Rechercher un arrêt",
+        "description": "Tape une partie du nom de l'arrêt (ex. « Bellecour ») ou son numéro.",
+        "data": {
+          "query": "Nom de l'arrêt"
+        }
+      },
+      "stop": {
+        "title": "Choisir l'arrêt",
+        "description": "Chaque quai a son propre numéro : un même nom peut apparaître plusieurs fois (un par sens).",
+        "data": {
+          "stop_id": "Arrêt"
+        }
+      },
+      "lines": {
+        "title": "Lignes à {stop}",
+        "description": "Choisis les lignes et directions à afficher. Les directions proposées sont celles des prochains passages : si une direction manque (la nuit par exemple), reviens plus tard ou choisis « toutes directions ».",
+        "data": {
+          "choices": "Lignes et directions"
+        }
+      },
+      "remove": {
+        "title": "Retirer des lignes",
+        "data": {
+          "remove": "À retirer"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Identifiants refusés.",
+      "cannot_connect": "Impossible de joindre data.grandlyon.com.",
+      "no_stop": "Aucun arrêt trouvé.",
+      "no_line": "Aucune ligne trouvée pour cet arrêt pour le moment."
+    }
+  }
+}

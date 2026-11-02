@@ -1,0 +1,15 @@
+{
+  "domain": "tcl_lyon",
+  "name": "TCL Lyon - Prochains d\u00e9parts",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://data.grandlyon.com",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "1.0.0",
+  "dependencies": [
+    "frontend",
+    "http"
+  ]
+}
