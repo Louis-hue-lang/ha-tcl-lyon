@@ -7,6 +7,8 @@ tablette murale (testée sur la résolution d'un Echo Show 8 sous LineageOS, 128
 - Configuration 100 % via l'interface : recherche d'arrêt, puis choix des lignes **et des directions**.
 - **Alertes trafic** (travaux, perturbations) affichées sous chaque ligne concernée.
 - **Stations Vélo'v** : vélos disponibles (dont électriques) et places libres.
+- **Carte des bus** : touche une ligne pour ouvrir une carte avec les bus qui **arrivent vers ton
+  arrêt**. Le cadrage s'adapte pour en montrer un maximum, et l'orientation de la carte se règle.
 - Un capteur par ligne/direction suivie (valeur = minutes avant le prochain départ).
 - La carte `tcl-departures-card` est chargée automatiquement, sans ressource à ajouter.
 - Le compte à rebours se met à jour toutes les 10 s entre deux rafraîchissements de l'API (20 s).
@@ -19,9 +21,11 @@ Les données temps réel TCL sont publiées par la Métropole de Lyon, en **acc�
 2. Ouvre le jeu de données **« Prochains passages temps réel du réseau TCL »**
    (`tcl_sytral.tclpassagearret`) et clique sur **Demander l'accès**.
    L'accès est en général accordé rapidement (quelques heures à quelques jours).
-3. Fais de même pour **« Alertes trafic du réseau TCL (v2) »** (`tcl_sytral.tclalertetrafic_2`).
-   Ce jeu est facultatif : sans lui, le module fonctionne, mais sans les alertes.
-4. Le jeu **Vélo'v** (`jcd_jcdecaux.jcdvelov`) est en accès libre.
+3. Facultatif, mais recommandé : demande aussi l'accès à ces jeux. Sans eux, la fonction correspondante est simplement désactivée.
+   - **« Alertes trafic du réseau TCL (v2) »** (`tcl_sytral.tclalertetrafic_2`)
+   - **« Alertes trafic des lignes scolaires »** (`jd_juniordirect.jdalertetrafic_2`)
+   - **« Positions en temps réel des véhicules »** (flux SIRI Lite `vehicle-monitoring`), pour la carte des bus
+4. Le jeu **Vélo'v** est en accès libre.
 5. Tu utiliseras ensuite l'email et le mot de passe de ce compte dans Home Assistant.
 
 ## 2. Installation
@@ -51,7 +55,23 @@ Chaque ligne suivie crée un capteur, par exemple `sensor.arret_tcl_bellecour_c2
 Chaque station Vélo'v crée un capteur `sensor.velo_v_<station>_velos_disponibles`, avec les attributs
 `places`, `capacite`, `velos_electriques`, `velos_mecaniques` et `statut`.
 
-Rafraîchissements : passages toutes les 20 s, Vélo'v toutes les 60 s, alertes toutes les 5 min.
+Rafraîchissements : passages et positions des bus toutes les 20 s, Vélo'v toutes les 60 s, alertes toutes les 5 min.
+
+### Carte des bus
+
+**Configurer → Carte des bus (réglages)** :
+- **URL de l'API des positions** : par défaut, le flux SIRI Lite de data.grandlyon.com. Vide le champ pour désactiver la carte.
+- **Orientation de la carte** : un angle fixe. 0° met le nord en haut, 90° l'est, etc. Choisis-le pour que
+  tes bus arrivent par le haut de l'écran, par exemple.
+
+Pour sélectionner les bus qui **arrivent vers ton arrêt**, le module utilise, du plus fiable au moins fiable :
+1. la liste des prochains arrêts annoncée par le bus ;
+2. sa destination, comparée à la direction suivie ;
+3. l'évolution de sa distance à l'arrêt depuis la mesure précédente ;
+4. son cap, qui doit pointer vers l'arrêt.
+
+Le cadrage englobe l'arrêt et ces bus. L'arrêt se retrouve donc dans un coin, et le reste de l'écran
+montre la zone d'où ils arrivent. La fenêtre se ferme avec ✕, ou toute seule après 60 s sans contact.
 
 ## 4. Tableau de bord plein écran
 
@@ -84,6 +104,9 @@ Options :
 | `hide_empty` | `false` | Masque les lignes sans départ prévu |
 | `show_alerts` | `true` | Affiche les alertes trafic sous la ligne, à la place du nom de l'arrêt |
 | `colors` | – | Couleurs personnalisées, ex. `{ "86": "#0090d0" }` |
+| `popup_timeout` | `60` | Secondes avant la fermeture automatique de la carte (`0` = jamais) |
+| `map_style` | `dark` | Fond de carte : `dark` (CARTO sombre) ou `light` (OpenStreetMap) |
+| `map_bearing` | – | Force une orientation, en ignorant le réglage de l'intégration |
 
 Exemple avec une sélection :
 
@@ -107,6 +130,10 @@ par l'éditeur YAML du tableau, ou ouvre l'URL avec `?edit=1`.
 - Avec Fully Kiosk, active *Keep Screen On*, *Start on boot* et la réduction de luminosité la nuit.
 
 ## Notes
+
+- La carte utilise [MapLibre GL](https://maplibre.org/) (licence BSD), fourni avec le module.
+  Les fonds de carte se chargent depuis Internet.
+- Tests : `pip install pytest-homeassistant-custom-component`, puis `pytest`.
 
 - Le point vert ● indique un horaire **temps réel**. Sans ce point, l'horaire est théorique.
 - Données : TCL / SYTRAL Mobilités via data.grandlyon.com.

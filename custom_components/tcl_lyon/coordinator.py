@@ -13,12 +13,14 @@ from homeassistant.util import dt as dt_util
 from .api import TclApi, TclAuthError, TclError
 from .const import (
     ALERTES_INTERVAL,
+    CONF_POSITIONS_URL,
     CONF_STOP_ID,
     CONF_TRACKS,
     CONF_VELOV,
     CONF_VELOV_ID,
     DOMAIN,
     SCAN_INTERVAL,
+    URL_POSITIONS,
     VELOV_INTERVAL,
 )
 
@@ -37,6 +39,39 @@ class TclCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._alertes_failed = False
         self._velov: dict[str, dict] = {}
         self._velov_at = None
+        self._stop_positions: dict[str, list[float] | None] = {}
+        self._vehicles: list[dict] = []
+        self._prev_positions: dict[str, list[float]] = {}
+        self._vehicles_failed = False
+
+    async def _refresh_stop_positions(self, stop_ids: set[str]) -> None:
+        missing = stop_ids - self._stop_positions.keys()
+        if not missing:
+            return
+        try:
+            for sid in missing:
+                stop = await self.api.async_get_stop(sid)
+                self._stop_positions[sid] = stop["position"] if stop else None
+        except TclError as err:
+            _LOGGER.debug("Coordonnées des arrêts indisponibles : %s", err)
+
+    async def _refresh_vehicles(self, url: str) -> None:
+        if not url:
+            self._vehicles = []
+            return
+        try:
+            vehicles = await self.api.async_get_vehicles(url)
+        except TclError as err:
+            if not self._vehicles_failed:
+                _LOGGER.warning("Positions des véhicules indisponibles : %s", err)
+            self._vehicles_failed = True
+            return
+        if not self._vehicles_failed and not vehicles:
+            _LOGGER.warning("Aucune position de véhicule lisible à l'URL %s", url)
+        self._vehicles_failed = False
+        # Position précédente de chaque véhicule : sert à savoir s'il s'approche de l'arrêt
+        self._prev_positions = {v["id"]: [v["lat"], v["lon"]] for v in self._vehicles}
+        self._vehicles = vehicles
 
     async def _refresh_alertes(self, now) -> None:
         if self._alertes_at and now - self._alertes_at < ALERTES_INTERVAL:
@@ -75,4 +110,15 @@ class TclCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if stop_ids:
             await self._refresh_alertes(now)
         await self._refresh_velov(now, velov_ids)
-        return {"passages": passages, "alertes": self._alertes, "velov": self._velov}
+        positions_url = (options.get(CONF_POSITIONS_URL, URL_POSITIONS) or "").strip()
+        if positions_url and stop_ids:
+            await self._refresh_stop_positions(stop_ids)
+            await self._refresh_vehicles(positions_url)
+        return {
+            "passages": passages,
+            "alertes": self._alertes,
+            "velov": self._velov,
+            "stops": self._stop_positions,
+            "vehicules": self._vehicles if positions_url else None,
+            "vehicules_prev": self._prev_positions,
+        }

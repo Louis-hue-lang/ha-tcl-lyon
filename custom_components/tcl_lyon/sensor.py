@@ -15,13 +15,16 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .api import line_base
+from .api import bearing_deg, distance_m, line_base, normalize_text
 from .const import (
     CONF_DIRECTION,
     CONF_VELOV,
     CONF_VELOV_ID,
     CONF_VELOV_NAME,
     CONF_LIGNE,
+    CONF_MAP_BEARING,
+    MAX_VEHICLE_DISTANCE_M,
+    MAX_VEHICLES,
     CONF_STOP_ID,
     CONF_STOP_NAME,
     CONF_TRACKS,
@@ -93,6 +96,71 @@ def active_alertes(alertes: list[dict] | None, ligne: str) -> list[dict]:
     return out
 
 
+def _tokens(text: str) -> set[str]:
+    return {t for t in re.split(r"[^a-z0-9]+", normalize_text(text)) if len(t) >= 3}
+
+
+def _same_direction(a: str, b: str) -> bool:
+    """Compare deux libellés de destination, avec tolérance (« V.Merle » / « Vivier Merle »)."""
+    na, nb = normalize_text(a), normalize_text(b)
+    if not na or not nb or na in nb or nb in na:
+        return True
+    ta, tb = _tokens(a), _tokens(b)
+    return bool(ta and tb) and len(ta & tb) / min(len(ta), len(tb)) >= 0.5
+
+
+def approaching_vehicles(
+    vehicles: list[dict] | None,
+    prev: dict[str, list[float]],
+    stop: list[float] | None,
+    ligne: str,
+    direction: str,
+    stop_id: str = "",
+) -> list[dict]:
+    """Véhicules de la ligne qui se dirigent vers l'arrêt.
+
+    Critères, du plus fiable au moins fiable :
+    0. l'arrêt figure dans les prochains arrêts annoncés par le véhicule (SIRI) ;
+    1. la direction annoncée par le véhicule correspond à celle suivie ;
+    2. la distance à l'arrêt diminue depuis la mesure précédente ;
+    3. sinon, le cap du véhicule pointe vers l'arrêt (écart < 100°).
+    """
+    if not vehicles or not stop:
+        return []
+    base, suffix = line_base(ligne), ligne.strip().upper()[len(line_base(ligne)):]
+    out = []
+    for v in vehicles:
+        if line_base(v["ligne"]) != base:
+            continue
+        vsuffix = v["ligne"].strip().upper()[len(line_base(v["ligne"])):]
+        if suffix and vsuffix and suffix != vsuffix:
+            continue  # ex. C3A vs C3R : sens opposé
+        pos = [v["lat"], v["lon"]]
+        dist = distance_m(pos, stop)
+        if dist > MAX_VEHICLE_DISTANCE_M:
+            continue
+        next_stops = v.get("prochains_arrets") or []
+        if stop_id and stop_id in next_stops:
+            out.append({**v, "distance_m": round(dist)})
+            continue
+        if direction and len(v["direction"]) > 2 and not v["direction"].isdigit():
+            if not _same_direction(v["direction"], direction):
+                continue
+        approaching: bool | None = None
+        if (p := prev.get(v["id"])) and p != pos:
+            delta = dist - distance_m(p, stop)
+            if abs(delta) > 25:
+                approaching = delta < 0
+        if approaching is None and v["cap"] is not None and dist > 80:
+            diff = abs((bearing_deg(pos, stop) - v["cap"] + 180) % 360 - 180)
+            approaching = diff < 100
+        if approaching is False:
+            continue
+        out.append({**v, "distance_m": round(dist)})
+    out.sort(key=lambda v: v["distance_m"])
+    return out[:MAX_VEHICLES]
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -112,6 +180,7 @@ class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
     def __init__(self, coordinator: TclCoordinator, entry: ConfigEntry, track: dict) -> None:
         super().__init__(coordinator)
         self._track = track
+        self._entry = entry
         self._ligne = track[CONF_LIGNE]
         self._direction = track.get(CONF_DIRECTION, "")
         self._stop_id = track[CONF_STOP_ID]
@@ -167,6 +236,25 @@ class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
             "arret_id": self._stop_id,
             "departs": self._departures(),
             "alertes": active_alertes((self.coordinator.data or {}).get("alertes"), self._ligne),
+            **self._map_attributes(),
+        }
+
+    def _map_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        if data.get("vehicules") is None:
+            return {"carte_disponible": False}
+        stop = data.get("stops", {}).get(self._stop_id)
+        return {
+            "carte_disponible": stop is not None,
+            "arret_position": stop,
+            "carte_orientation": self._entry.options.get(CONF_MAP_BEARING, 0),
+            "vehicules": [
+                {k: v[k] for k in ("id", "lat", "lon", "cap", "distance_m", "direction")}
+                for v in approaching_vehicles(
+                    data["vehicules"], data.get("vehicules_prev", {}), stop,
+                    self._ligne, self._direction, self._stop_id,
+                )
+            ],
         }
 
 

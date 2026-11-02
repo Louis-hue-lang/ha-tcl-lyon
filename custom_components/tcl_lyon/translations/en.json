@@ -34,7 +34,8 @@
         "menu_options": {
           "search": "Ajouter un arrêt TCL / des lignes",
           "velov_search": "Ajouter une station Vélo'v",
-          "remove": "Retirer"
+          "remove": "Retirer",
+          "settings": "Carte des bus (réglages)"
         }
       },
       "search": {
@@ -76,6 +77,14 @@
         "data": {
           "stations": "Stations"
         }
+      },
+      "settings": {
+        "title": "Carte des bus",
+        "description": "Par défaut, les positions viennent du flux SIRI Lite de data.grandlyon.com (accès à demander sur le jeu « Positions en temps réel des véhicules »). Vide le champ pour désactiver la carte. L'orientation est un angle fixe : 0° = nord en haut, 90° = est en haut, etc.",
+        "data": {
+          "positions_url": "URL de l'API des positions",
+          "map_bearing": "Orientation de la carte"
+        }
       }
     },
     "error": {
@@ -83,7 +92,8 @@
       "cannot_connect": "Impossible de joindre data.grandlyon.com.",
       "no_stop": "Aucun arrêt trouvé.",
       "no_line": "Aucune ligne trouvée pour cet arrêt pour le moment.",
-      "no_station": "Aucune station Vélo'v trouvée."
+      "no_station": "Aucune station Vélo'v trouvée.",
+      "no_vehicle": "Aucune position de véhicule lisible à cette URL."
     }
   }
 }

@@ -10,6 +10,9 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -23,6 +26,8 @@ from .api import TclApi, TclAuthError, TclError
 from .const import (
     CONF_DIRECTION,
     CONF_LIGNE,
+    CONF_MAP_BEARING,
+    CONF_POSITIONS_URL,
     CONF_STOP_ID,
     CONF_STOP_NAME,
     CONF_TRACKS,
@@ -30,6 +35,7 @@ from .const import (
     CONF_VELOV_ID,
     CONF_VELOV_NAME,
     DOMAIN,
+    URL_POSITIONS,
 )
 
 SEP = "␟"  # séparateur interne ligne/direction
@@ -125,12 +131,15 @@ class TclOptionsFlow(OptionsFlow):
         return self._api
 
     def _save(self) -> ConfigFlowResult:
-        return self.async_create_entry(data={CONF_TRACKS: self.tracks, CONF_VELOV: self.velov})
+        return self.async_create_entry(
+            data={**self.config_entry.options, CONF_TRACKS: self.tracks, CONF_VELOV: self.velov}
+        )
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
         menu = ["search", "velov_search"]
         if self.tracks or self.velov:
             menu.append("remove")
+        menu.append("settings")
         return self.async_show_menu(
             step_id="init",
             menu_options=menu,
@@ -322,4 +331,45 @@ class TclOptionsFlow(OptionsFlow):
                     )
                 }
             ),
+        )
+
+    async def async_step_settings(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Carte des véhicules : URL de l'API des positions et orientation de la carte."""
+        errors: dict[str, str] = {}
+        opts = self.config_entry.options
+        if user_input is not None:
+            url = (user_input.get(CONF_POSITIONS_URL) or "").strip()
+            if url:
+                try:
+                    if not await self.api.async_get_vehicles(url):
+                        errors[CONF_POSITIONS_URL] = "no_vehicle"
+                except TclError:
+                    errors[CONF_POSITIONS_URL] = "cannot_connect"
+            if not errors:
+                return self.async_create_entry(
+                    data={
+                        **opts,
+                        CONF_POSITIONS_URL: url,
+                        CONF_MAP_BEARING: int(user_input.get(CONF_MAP_BEARING, 0)) % 360,
+                    }
+                )
+        return self.async_show_form(
+            step_id="settings",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_POSITIONS_URL,
+                        description={"suggested_value": opts.get(CONF_POSITIONS_URL, URL_POSITIONS)},
+                    ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+                    vol.Required(
+                        CONF_MAP_BEARING, default=opts.get(CONF_MAP_BEARING, 0)
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0, max=359, step=1, unit_of_measurement="°",
+                            mode=NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
         )

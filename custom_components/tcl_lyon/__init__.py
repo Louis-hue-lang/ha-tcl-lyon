@@ -18,13 +18,18 @@ from .coordinator import TclCoordinator
 PLATFORMS = [Platform.SENSOR]
 CARD_URL = "/tcl_lyon/tcl-departures-card.js"
 CARD_FILE = Path(__file__).parent / "frontend" / "tcl-departures-card.js"
-VERSION = "1.1.0"
+MAPLIBRE_URL = "/tcl_lyon/maplibre"
+MAPLIBRE_DIR = Path(__file__).parent / "frontend" / "maplibre"
+VERSION = "1.2.0"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Sert la carte Lovelace et la charge automatiquement dans le frontend."""
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL, str(CARD_FILE), False)]
+        [
+            StaticPathConfig(CARD_URL, str(CARD_FILE), False),
+            StaticPathConfig(MAPLIBRE_URL, str(MAPLIBRE_DIR), True),
+        ]
     )
     add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}")
     return True
