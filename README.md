@@ -7,7 +7,7 @@ tablette murale (testée sur la résolution d'un Echo Show 8 sous LineageOS, 128
 - Configuration 100 % via l'interface : recherche d'arrêt, puis choix des lignes **et des directions**.
 - Un capteur par ligne/direction suivie (valeur = minutes avant le prochain départ).
 - La carte `tcl-departures-card` est chargée automatiquement, sans ressource à ajouter.
-- Le compte à rebours se met à jour toutes les 10 s entre deux rafraîchissements de l'API (60 s).
+- Le compte à rebours se met à jour toutes les 10 s entre deux rafraîchissements de l'API (20 s).
 
 ## 1. Accès aux données (gratuit)
 

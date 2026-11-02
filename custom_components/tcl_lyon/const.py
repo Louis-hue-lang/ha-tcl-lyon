@@ -13,5 +13,5 @@ BASE_URL = "https://download.data.grandlyon.com/ws/rdata"
 URL_PASSAGES = f"{BASE_URL}/tcl_sytral.tclpassagearret/all.json"
 URL_ARRETS = f"{BASE_URL}/tcl_sytral.tclarret/all.json"
 
-SCAN_INTERVAL = timedelta(seconds=60)
+SCAN_INTERVAL = timedelta(seconds=20)
 MAX_DEPARTURES = 6
