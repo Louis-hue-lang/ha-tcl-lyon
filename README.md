@@ -26,7 +26,12 @@ Les données temps réel TCL sont publiées par la Métropole de Lyon, en **acc�
    - **« Alertes trafic des lignes scolaires »** (`jd_juniordirect.jdalertetrafic_2`)
    - **« Positions en temps réel des véhicules »** (flux SIRI Lite `vehicle-monitoring`), pour la carte des bus
 4. Le jeu **Vélo'v** est en accès libre.
-5. Tu utiliseras ensuite l'email et le mot de passe de ce compte dans Home Assistant.
+5. **Définis le mot de passe de la Plateforme Data.** Le mot de passe de connexion au portail
+   (GrandLyon Connect) n'est **pas** accepté par l'API : il faut un second compte technique, avec le même identifiant.
+   Déconnecté du portail, ouvre <https://data.grandlyon.com/portail/fr/mot-de-passe-oublie>, indique ton email et
+   choisis un mot de passe **différent** de celui de GrandLyon Connect
+   ([documentation](https://rdata-grandlyon.readthedocs.io/fr/latest/authentification.html)).
+6. Tu utiliseras ensuite ton email et ce mot de passe de la Plateforme Data dans Home Assistant.
 
 ## 2. Installation
 
@@ -39,7 +44,7 @@ Copie `custom_components/tcl_lyon` dans le dossier `config/custom_components/` d
 
 ## 3. Configuration
 
-1. **Paramètres → Appareils et services → Ajouter une intégration → TCL Lyon**, puis saisis tes identifiants data.grandlyon.com.
+1. **Paramètres → Appareils et services → Ajouter une intégration → TCL Lyon**, puis saisis ton email et le mot de passe de la Plateforme Data (étape 5 ci-dessus).
 2. Sur l'intégration, clique sur **Configurer → Ajouter un arrêt / des lignes** :
    - tape le nom de l'arrêt (ex. `Bellecour`) ;
    - choisis le quai : chaque sens a souvent son propre numéro d'arrêt ;

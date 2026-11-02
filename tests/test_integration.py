@@ -168,6 +168,18 @@ async def test_full_flow(hass: HomeAssistant, api_mock):
 
 
 
+async def test_essai_refuse_ne_bloque_pas_le_suivant(hass: HomeAssistant, aioclient_mock):
+    aioclient_mock.get(re.compile(re.escape(URL_PASSAGES) + ".*"), status=401)
+    creds = {"username": "moi@example.com", "password": "mauvais"}
+    for _ in range(2):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], creds)
+        assert result["type"] is FlowResultType.FORM
+        assert result["errors"] == {"base": "invalid_auth"}
+
+
 async def test_card_served(hass: HomeAssistant, hass_client, api_mock):
     entry = MockConfigEntry(domain=DOMAIN, data={"username": "u", "password": "p"},
                             options={"tracks": [], "velov": []})

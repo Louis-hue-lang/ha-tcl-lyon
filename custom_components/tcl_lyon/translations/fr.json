@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Compte data.grandlyon.com",
-        "description": "Identifiants de ton compte data.grandlyon.com (accès au jeu de données « Prochains passages temps réel TCL » requis).",
+        "description": "Ton email et le mot de passe de la Plateforme Data : ce n'est pas celui de GrandLyon Connect. Définis-le sur data.grandlyon.com/portail/fr/mot-de-passe-oublie, déconnecté du portail.",
         "data": {
           "username": "Email",
           "password": "Mot de passe"
@@ -11,6 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Reconnexion data.grandlyon.com",
+        "description": "Ton email et le mot de passe de la Plateforme Data : ce n'est pas celui de GrandLyon Connect. Définis-le sur data.grandlyon.com/portail/fr/mot-de-passe-oublie, déconnecté du portail.",
         "data": {
           "username": "Email",
           "password": "Mot de passe"
@@ -18,7 +19,7 @@
       }
     },
     "error": {
-      "invalid_auth": "Identifiants refusés ou accès au jeu de données non accordé.",
+      "invalid_auth": "Identifiants refusés ou accès non accordé. Utilise le mot de passe de la Plateforme Data, pas celui de GrandLyon Connect.",
       "cannot_connect": "Impossible de joindre data.grandlyon.com."
     },
     "abort": {

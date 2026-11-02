@@ -67,7 +67,10 @@ class TclConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            await self.async_set_unique_id(user_input[CONF_USERNAME].lower())
+            # Un essai refusé resté ouvert ne doit pas bloquer le suivant
+            await self.async_set_unique_id(
+                user_input[CONF_USERNAME].lower(), raise_on_progress=False
+            )
             self._abort_if_unique_id_configured()
             errors = await _validate(self.hass, user_input)
             if not errors:
