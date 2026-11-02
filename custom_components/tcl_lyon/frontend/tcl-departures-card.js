@@ -181,7 +181,7 @@ class TclDeparturesCard extends HTMLElement {
             Paramètres → Appareils et services → TCL Lyon → Configurer.</div>`}
         </div>
         <footer>
-          <span>● temps réel &nbsp; sinon horaire théorique</span>
+          <span><span style="color:#4caf50">●</span> temps réel &nbsp; sinon horaire théorique</span>
           <span class="${stale ? "warn" : ""}">${lastUpdate
             ? (stale ? "Données anciennes — " : "") + "MAJ " +
               new Date(lastUpdate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
