@@ -15,3 +15,13 @@ URL_ARRETS = f"{BASE_URL}/tcl_sytral.tclarret/all.json"
 
 SCAN_INTERVAL = timedelta(seconds=20)
 MAX_DEPARTURES = 6
+
+CONF_VELOV = "velov"
+CONF_VELOV_ID = "id"
+CONF_VELOV_NAME = "name"
+
+URL_ALERTES = f"{BASE_URL}/tcl_sytral.tclalertetrafic_2/all.json"
+URL_VELOV = f"{BASE_URL}/jcd_jcdecaux.jcdvelov/all.json"
+
+ALERTES_INTERVAL = timedelta(minutes=5)
+VELOV_INTERVAL = timedelta(seconds=60)

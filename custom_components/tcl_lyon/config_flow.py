@@ -20,7 +20,17 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import TclApi, TclAuthError, TclError
-from .const import CONF_DIRECTION, CONF_LIGNE, CONF_STOP_ID, CONF_STOP_NAME, CONF_TRACKS, DOMAIN
+from .const import (
+    CONF_DIRECTION,
+    CONF_LIGNE,
+    CONF_STOP_ID,
+    CONF_STOP_NAME,
+    CONF_TRACKS,
+    CONF_VELOV,
+    CONF_VELOV_ID,
+    CONF_VELOV_NAME,
+    DOMAIN,
+)
 
 SEP = "␟"  # séparateur interne ligne/direction
 
@@ -56,7 +66,7 @@ class TclConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = await _validate(self.hass, user_input)
             if not errors:
                 return self.async_create_entry(
-                    title="TCL Lyon", data=user_input, options={CONF_TRACKS: []}
+                    title="TCL Lyon", data=user_input, options={CONF_TRACKS: [], CONF_VELOV: []}
                 )
         return self.async_show_form(step_id="user", data_schema=CREDS_SCHEMA, errors=errors)
 
@@ -86,6 +96,8 @@ class TclOptionsFlow(OptionsFlow):
 
     def __init__(self) -> None:
         self._tracks: list[dict] | None = None
+        self._velov: list[dict] | None = None
+        self._velov_matches: list[dict] = []
         self._matches: list[dict] = []
         self._stop: dict | None = None
         self._api: TclApi | None = None
@@ -95,6 +107,12 @@ class TclOptionsFlow(OptionsFlow):
         if self._tracks is None:
             self._tracks = list(self.config_entry.options.get(CONF_TRACKS, []))
         return self._tracks
+
+    @property
+    def velov(self) -> list[dict]:
+        if self._velov is None:
+            self._velov = list(self.config_entry.options.get(CONF_VELOV, []))
+        return self._velov
 
     @property
     def api(self) -> TclApi:
@@ -107,11 +125,11 @@ class TclOptionsFlow(OptionsFlow):
         return self._api
 
     def _save(self) -> ConfigFlowResult:
-        return self.async_create_entry(data={CONF_TRACKS: self.tracks})
+        return self.async_create_entry(data={CONF_TRACKS: self.tracks, CONF_VELOV: self.velov})
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
-        menu = ["search"]
-        if self.tracks:
+        menu = ["search", "velov_search"]
+        if self.tracks or self.velov:
             menu.append("remove")
         return self.async_show_menu(
             step_id="init",
@@ -122,6 +140,7 @@ class TclOptionsFlow(OptionsFlow):
                     f"{t.get(CONF_DIRECTION) or 'toutes directions'}"
                     for t in self.tracks
                 )
+                + "".join(f"\n- Vélo'v {v[CONF_VELOV_NAME]}" for v in self.velov)
                 or "(aucune)"
             },
         )
@@ -231,6 +250,7 @@ class TclOptionsFlow(OptionsFlow):
         if user_input is not None:
             to_remove = set(user_input.get("remove", []))
             self._tracks = [t for t, k in zip(self.tracks, keys) if k not in to_remove]
+            self._velov = [v for v in self.velov if f"velov{SEP}{v[CONF_VELOV_ID]}" not in to_remove]
             return self._save()
         options = [
             SelectOptionDict(
@@ -239,12 +259,63 @@ class TclOptionsFlow(OptionsFlow):
                 f"{t.get(CONF_DIRECTION) or 'toutes directions'}",
             )
             for t, k in zip(self.tracks, keys)
+        ] + [
+            SelectOptionDict(
+                value=f"velov{SEP}{v[CONF_VELOV_ID]}", label=f"Vélo'v {v[CONF_VELOV_NAME]}"
+            )
+            for v in self.velov
         ]
         return self.async_show_form(
             step_id="remove",
             data_schema=vol.Schema(
                 {
                     vol.Required("remove", default=[]): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options, multiple=True, mode=SelectSelectorMode.LIST
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_velov_search(self, user_input: dict | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                self._velov_matches = await self.api.async_search_velov(user_input["query"])
+            except TclError:
+                errors["base"] = "cannot_connect"
+            else:
+                if self._velov_matches:
+                    return await self.async_step_velov_station()
+                errors["base"] = "no_station"
+        return self.async_show_form(
+            step_id="velov_search",
+            data_schema=vol.Schema({vol.Required("query"): TextSelector()}),
+            errors=errors,
+        )
+
+    async def async_step_velov_station(self, user_input: dict | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            known = {v[CONF_VELOV_ID] for v in self.velov}
+            for sid in user_input.get("stations", []):
+                st = next((s for s in self._velov_matches if s["id"] == sid), None)
+                if st and sid not in known:
+                    self.velov.append({CONF_VELOV_ID: sid, CONF_VELOV_NAME: st["nom"]})
+            return self._save()
+        options = [
+            SelectOptionDict(
+                value=s["id"],
+                label=f"{s['nom']} (#{s['id']})"
+                + (f" — {s['velos']} vélos / {s['places']} places" if s["velos"] is not None else ""),
+            )
+            for s in self._velov_matches
+        ]
+        return self.async_show_form(
+            step_id="velov_station",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("stations", default=[]): SelectSelector(
                         SelectSelectorConfig(
                             options=options, multiple=True, mode=SelectSelectorMode.LIST
                         )

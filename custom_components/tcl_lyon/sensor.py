@@ -15,8 +15,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
+from .api import line_base
 from .const import (
     CONF_DIRECTION,
+    CONF_VELOV,
+    CONF_VELOV_ID,
+    CONF_VELOV_NAME,
     CONF_LIGNE,
     CONF_STOP_ID,
     CONF_STOP_NAME,
@@ -61,13 +65,43 @@ def _icon(ligne: str) -> str:
     return "mdi:bus"
 
 
+def _parse_dt(value: str) -> datetime | None:
+    if not value:
+        return None
+    parsed = dt_util.parse_datetime(value.replace(" ", "T", 1))
+    if parsed is not None and parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=PARIS)
+    return parsed
+
+
+def active_alertes(alertes: list[dict] | None, ligne: str) -> list[dict]:
+    """Alertes en cours concernant une ligne."""
+    if not alertes:
+        return []
+    base = line_base(ligne)
+    now = dt_util.now()
+    out = []
+    for a in alertes:
+        if base not in a["lignes"]:
+            continue
+        debut, fin = _parse_dt(a["debut"]), _parse_dt(a["fin"])
+        if (debut and debut > now) or (fin and fin < now):
+            continue
+        out.append(
+            {k: a[k] for k in ("titre", "message", "type", "cause", "debut", "fin")}
+        )
+    return out
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: TclCoordinator = entry.runtime_data
-    async_add_entities(
+    entities: list[SensorEntity] = [
         TclDepartureSensor(coordinator, entry, t) for t in entry.options.get(CONF_TRACKS, [])
-    )
+    ]
+    entities += [VelovSensor(coordinator, entry, v) for v in entry.options.get(CONF_VELOV, [])]
+    async_add_entities(entities)
 
 
 class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
@@ -95,7 +129,7 @@ class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
 
     def _departures(self) -> list[dict[str, Any]]:
         now = dt_util.now()
-        passages = (self.coordinator.data or {}).get(self._stop_id, [])
+        passages = (self.coordinator.data or {}).get("passages", {}).get(self._stop_id, [])
         out = []
         for p in passages:
             if p["ligne"] != self._ligne:
@@ -126,9 +160,60 @@ class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         return {
             "integration": DOMAIN,
+            "type": "depart",
             "ligne": self._ligne,
             "direction": self._direction or None,
             "arret": self._stop_name,
             "arret_id": self._stop_id,
             "departs": self._departures(),
+            "alertes": active_alertes((self.coordinator.data or {}).get("alertes"), self._ligne),
+        }
+
+
+class VelovSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
+    """Nombre de vélos disponibles dans une station Vélo'v."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:bicycle"
+    _attr_native_unit_of_measurement = "vélos"
+    _attr_attribution = "Données Vélo'v / JCDecaux via data.grandlyon.com"
+
+    def __init__(self, coordinator: TclCoordinator, entry: ConfigEntry, station: dict) -> None:
+        super().__init__(coordinator)
+        self._id = station[CONF_VELOV_ID]
+        self._name = station.get(CONF_VELOV_NAME, self._id)
+        self._attr_unique_id = f"{entry.entry_id}_velov_{self._id}"
+        self._attr_name = "Vélos disponibles"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.entry_id}_velov_{self._id}")},
+            name=f"Vélo'v {self._name}",
+            manufacturer="Vélo'v / JCDecaux",
+            model=f"Station {self._id}",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def _station(self) -> dict | None:
+        return (self.coordinator.data or {}).get("velov", {}).get(self._id)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._station is not None
+
+    @property
+    def native_value(self) -> int | None:
+        st = self._station
+        return st["velos"] if st else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        st = self._station or {}
+        return {
+            "integration": DOMAIN,
+            "type": "velov",
+            "station": self._name,
+            "station_id": self._id,
+            **{k: st.get(k) for k in (
+                "places", "capacite", "velos_electriques", "velos_mecaniques", "statut", "maj"
+            )},
         }

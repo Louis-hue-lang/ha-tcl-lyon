@@ -18,7 +18,7 @@ from .coordinator import TclCoordinator
 PLATFORMS = [Platform.SENSOR]
 CARD_URL = "/tcl_lyon/tcl-departures-card.js"
 CARD_FILE = Path(__file__).parent / "frontend" / "tcl-departures-card.js"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

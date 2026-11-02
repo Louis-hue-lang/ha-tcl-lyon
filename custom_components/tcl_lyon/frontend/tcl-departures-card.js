@@ -8,8 +8,15 @@ const TCL_COLORS = {
 };
 const TCL_DEFAULT = { metroText: "#fff", tram: "#7A2A84", chrono: "#D5007F", bus: "#E4002B" };
 
+function displayLine(ligne) {
+  const l = String(ligne || "").toUpperCase().trim();
+  const m = l.match(/^(.*\d)[AR]$/);
+  return m ? m[1] : l;
+}
+
 function lineColor(ligne, custom) {
-  const l = String(ligne || "").toUpperCase();
+  if (custom && custom[ligne]) return custom[ligne];
+  const l = displayLine(ligne);
   if (custom && custom[ligne]) return custom[ligne];
   if (custom && custom[l]) return custom[l];
   if (TCL_COLORS[l]) return TCL_COLORS[l];
@@ -27,6 +34,7 @@ class TclDeparturesCard extends HTMLElement {
       show_clock: true,
       show_stop: true,
       hide_empty: false,
+      show_alerts: true,
       colors: {},
       ...config,
     };
@@ -84,7 +92,9 @@ class TclDeparturesCard extends HTMLElement {
     const now = Date.now();
     const states = this._entities();
 
+    const velov = states.filter((s) => s.attributes.type === "velov");
     const rows = states
+      .filter((s) => s.attributes.type !== "velov")
       .map((st) => {
         const a = st.attributes;
         const deps = (a.departs || [])
@@ -100,8 +110,28 @@ class TclDeparturesCard extends HTMLElement {
     const stale = lastUpdate && now - lastUpdate > 5 * 60000;
     const clock = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
+    const velovHtml = velov.map((st) => {
+      const a = st.attributes;
+      const closed = a.statut && !/open|ouvert/i.test(a.statut);
+      const bikes = st.state === "unavailable" || st.state === "unknown" ? "–" : st.state;
+      return `<div class="row">
+          <div class="badge velov">Vélo'v</div>
+          <div class="info">
+            <div class="dir">${esc(a.station || "")}</div>
+            <div class="stop">${closed ? '<span class="warn">Station fermée</span>'
+              : a.places != null ? `${a.places} places libres` : ""}</div>
+          </div>
+          <div class="times">
+            ${a.velos_electriques != null
+              ? `<div class="time"><span class="num">${a.velos_electriques}</span><span class="unit">⚡</span></div>` : ""}
+            <div class="time first"><span class="num">${bikes}</span><span class="unit">vélos</span></div>
+          </div>
+        </div>`;
+    }).join("");
+
     const rowHtml = rows.map(({ a, deps }) => {
       const color = lineColor(a.ligne, cfg.colors);
+      const alertes = cfg.show_alerts ? (a.alertes || []) : [];
       const times = deps.length
         ? deps.map((d, i) => {
             const f = this._fmt(this._minutes(d, now));
@@ -115,14 +145,16 @@ class TclDeparturesCard extends HTMLElement {
           }).join("")
         : `<div class="none">Aucun départ prévu</div>`;
       return `<div class="row">
-          <div class="badge" style="background:${color}">${esc(a.ligne)}</div>
+          <div class="badge" style="background:${color}">${esc(displayLine(a.ligne))}</div>
           <div class="info">
             <div class="dir">${esc(a.direction || "Toutes directions")}</div>
-            ${cfg.show_stop ? `<div class="stop">${esc(a.arret || "")}</div>` : ""}
+            ${alertes.length
+              ? `<div class="alert">⚠ ${esc(alertes.map((x) => x.titre || x.message).join(" · "))}</div>`
+              : cfg.show_stop ? `<div class="stop">${esc(a.arret || "")}</div>` : ""}
           </div>
           <div class="times">${times}</div>
         </div>`;
-    }).join("");
+    }).join("") + velovHtml;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -148,6 +180,10 @@ class TclDeparturesCard extends HTMLElement {
           display:flex; align-items:center; justify-content:center; color:#fff;
           font-size:clamp(24px,6vh,64px); font-weight:700; padding:0 .6vw; box-sizing:border-box;
         }
+        .badge.velov { background:#E2001A; font-size:clamp(14px,3vh,32px); }
+        .alert { font-size:clamp(13px,2.6vh,28px); color:#ffab40; margin-top:.4vh;
+                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .warn { color:#ff7043; }
         .info { flex:1; min-width:0; }
         .dir { font-size:clamp(20px,4.8vh,52px); font-weight:500;
                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

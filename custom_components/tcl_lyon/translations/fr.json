@@ -29,11 +29,12 @@
   "options": {
     "step": {
       "init": {
-        "title": "Lignes suivies",
+        "title": "Éléments suivis",
         "description": "Actuellement suivies :\n{tracks}",
         "menu_options": {
-          "search": "Ajouter un arrêt / des lignes",
-          "remove": "Retirer des lignes"
+          "search": "Ajouter un arrêt TCL / des lignes",
+          "velov_search": "Ajouter une station Vélo'v",
+          "remove": "Retirer"
         }
       },
       "search": {
@@ -58,9 +59,22 @@
         }
       },
       "remove": {
-        "title": "Retirer des lignes",
+        "title": "Retirer des éléments",
         "data": {
           "remove": "À retirer"
+        }
+      },
+      "velov_search": {
+        "title": "Rechercher une station Vélo'v",
+        "description": "Nom, adresse ou numéro de la station (ex. « Bellecour »).",
+        "data": {
+          "query": "Station"
+        }
+      },
+      "velov_station": {
+        "title": "Choisir les stations Vélo'v",
+        "data": {
+          "stations": "Stations"
         }
       }
     },
@@ -68,7 +82,8 @@
       "invalid_auth": "Identifiants refusés.",
       "cannot_connect": "Impossible de joindre data.grandlyon.com.",
       "no_stop": "Aucun arrêt trouvé.",
-      "no_line": "Aucune ligne trouvée pour cet arrêt pour le moment."
+      "no_line": "Aucune ligne trouvée pour cet arrêt pour le moment.",
+      "no_station": "Aucune station Vélo'v trouvée."
     }
   }
 }
