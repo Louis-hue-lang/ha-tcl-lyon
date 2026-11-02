@@ -137,7 +137,8 @@ const STYLE = `
     width:clamp(40px,8vh,80px); height:clamp(40px,8vh,80px); font-size:clamp(20px,4.4vh,44px); }
   .mapbox { position:relative; flex:1; min-height:0; overflow:hidden; background:#1a1f24; }
   .map { position:absolute; background:#1a1f24; }
-  .leaflet-tile-container img { width:256.5px !important; height:256.5px !important; } /* lignes entre tuiles */
+  /* Chevauchement contre les lignes entre tuiles, sans le mode additif de Leaflet qui les blanchit */
+  .map.leaflet-container img.leaflet-tile { mix-blend-mode:normal; width:256.5px !important; height:256.5px !important; }
   .mmsg { position:absolute; left:50%; top:1.5vh; transform:translateX(-50%); z-index:1000;
     background:rgba(17,20,24,.88); padding:.8vh 1.4vw; border-radius:10px;
     font-size:clamp(13px,2.4vh,26px); color:#e0e0e0; white-space:nowrap; }

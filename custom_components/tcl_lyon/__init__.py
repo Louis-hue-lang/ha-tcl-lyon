@@ -20,7 +20,7 @@ CARD_URL = "/tcl_lyon/tcl-departures-card.js"
 CARD_FILE = Path(__file__).parent / "frontend" / "tcl-departures-card.js"
 LEAFLET_URL = "/tcl_lyon/leaflet"
 LEAFLET_DIR = Path(__file__).parent / "frontend" / "leaflet"
-VERSION = "1.4.4"
+VERSION = "1.4.5"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
