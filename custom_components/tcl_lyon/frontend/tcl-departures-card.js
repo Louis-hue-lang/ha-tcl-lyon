@@ -26,17 +26,18 @@ function loadLeaflet() {
   return _leafletPromise;
 }
 
+// OSM France : sans cl\u00e9 et sans Referer. Home Assistant n'en envoie pas aux autres domaines, et
+// CARTO (cl\u00e9 obligatoire), tile.openstreetmap.org et Stadia renvoient alors une image d'erreur.
+const OSMFR_TILES = {
+  url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
+  subdomains: "abc",
+  attribution: "\u00a9 OpenStreetMap contributors, OSM France",
+};
+
 const TILES = {
-  dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-    subdomains: "abcd",
-    attribution: "\u00a9 OpenStreetMap contributors \u00a9 CARTO",
-  },
-  light: {
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    subdomains: "abc",
-    attribution: "\u00a9 OpenStreetMap contributors",
-  },
+  // Sombre : un seul filtre CSS sur le calque des tuiles, pas un par tuile
+  dark: { ...OSMFR_TILES, filter: "invert(1) hue-rotate(180deg) brightness(.95) contrast(.85)" },
+  light: OSMFR_TILES,
 };
 
 const TCL_COLORS = {
@@ -429,6 +430,7 @@ class TclDeparturesCard extends HTMLElement {
       const t = TILES[cfg.map_style] || TILES.dark;
       L.tileLayer(t.url, { subdomains: t.subdomains, maxZoom: 19, keepBuffer: 0, updateWhenIdle: true })
         .addTo(this._map);
+      if (t.filter) this._map.getPane("tilePane").style.filter = t.filter;
       $(".attrib").textContent = t.attribution;
       this._markers = {};
       this._bearing = bearing;
