@@ -20,7 +20,7 @@ CARD_URL = "/tcl_lyon/tcl-departures-card.js"
 CARD_FILE = Path(__file__).parent / "frontend" / "tcl-departures-card.js"
 LEAFLET_URL = "/tcl_lyon/leaflet"
 LEAFLET_DIR = Path(__file__).parent / "frontend" / "leaflet"
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -32,6 +32,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         ]
     )
     add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}")
+    # Les WebView anciennes (Chrome < 131) reçoivent le frontend es5, qui a sa propre liste
+    add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}", es5=True)
 
     async def _activate_map(call: ServiceCall) -> None:
         """La carte des bus est ouverte : télécharger les positions pendant 60 s."""

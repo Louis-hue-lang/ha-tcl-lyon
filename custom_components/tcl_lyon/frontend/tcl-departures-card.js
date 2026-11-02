@@ -59,7 +59,7 @@ function lineColor(ligne, custom) {
 }
 
 function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
@@ -404,7 +404,8 @@ class TclDeparturesCard extends HTMLElement {
     }
     if (this._mapEntity !== st.entity_id) return;
 
-    const bearing = ((Number(cfg.map_bearing ?? a.carte_orientation ?? 0) || 0) % 360 + 360) % 360;
+    const rawBearing = cfg.map_bearing != null ? cfg.map_bearing : a.carte_orientation;
+    const bearing = ((Number(rawBearing) || 0) % 360 + 360) % 360;
     const stop = L.latLng(a.arret_position[0], a.arret_position[1]);
     const color = lineColor(a.ligne, cfg.colors);
     const box = $(".mapbox");
@@ -497,7 +498,19 @@ class TclDeparturesCard extends HTMLElement {
   }
 }
 
-customElements.define("tcl-departures-card", TclDeparturesCard);
+// Home Assistant remplace customElements en démarrant. Une carte enregistrée avant ce
+// remplacement reste invisible ("Erreur de configuration") : fréquent sur un appareil lent.
+function registerCard() {
+  if (!customElements.get("home-assistant")) {
+    setTimeout(registerCard, 50);
+    return;
+  }
+  if (!customElements.get("tcl-departures-card")) {
+    customElements.define("tcl-departures-card", TclDeparturesCard);
+  }
+}
+registerCard();
+
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "tcl-departures-card",

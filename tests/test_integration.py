@@ -180,12 +180,14 @@ async def test_essai_refuse_ne_bloque_pas_le_suivant(hass: HomeAssistant, aiocli
         assert result["errors"] == {"base": "invalid_auth"}
 
 
-async def test_card_served(hass: HomeAssistant, hass_client, api_mock):
+async def test_card_served(hass: HomeAssistant, hass_client, api_mock, fake_frontend):
     entry = MockConfigEntry(domain=DOMAIN, data={"username": "u", "password": "p"},
                             options={"tracks": [], "velov": []})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    # Frontend récent et frontend es5 (WebView anciennes, dont l'Echo Show)
+    assert sorted(c.kwargs.get("es5", False) for c in fake_frontend.call_args_list) == [False, True]
     client = await hass_client()
     r = await client.get("/tcl_lyon/tcl-departures-card.js")
     assert r.status == 200 and "tcl-departures-card" in await r.text()
