@@ -118,33 +118,40 @@ def approaching_vehicles(
     ligne: str,
     direction: str,
     stop_id: str = "",
+    courses: set[str] | None = None,
+    destination_ids: set[str] | None = None,
 ) -> list[dict]:
     """Véhicules de la ligne qui se dirigent vers l'arrêt.
 
     Critères, du plus fiable au moins fiable :
-    0. l'arrêt figure dans les prochains arrêts annoncés par le véhicule (SIRI) ;
-    1. la direction annoncée par le véhicule correspond à celle suivie ;
+    0. la course du véhicule figure dans les prochains passages annoncés à l'arrêt
+       (DatedVehicleJourneyRef SIRI == coursetheorique) : il va forcément à l'arrêt ;
+       idem si l'arrêt est son prochain arrêt annoncé ;
+    1. sa destination est l'une de celles des passages suivis (sinon : autre sens) ;
     2. la distance à l'arrêt diminue depuis la mesure précédente ;
     3. sinon, le cap du véhicule pointe vers l'arrêt (écart < 100°).
     """
+    courses = courses or set()
+    destination_ids = destination_ids or set()
     if not vehicles or not stop:
         return []
-    base, suffix = line_base(ligne), ligne.strip().upper()[len(line_base(ligne)):]
+    base = line_base(ligne)
     out = []
     for v in vehicles:
         if line_base(v["ligne"]) != base:
             continue
-        vsuffix = v["ligne"].strip().upper()[len(line_base(v["ligne"])):]
-        if suffix and vsuffix and suffix != vsuffix:
-            continue  # ex. C3A vs C3R : sens opposé
         pos = [v["lat"], v["lon"]]
         dist = distance_m(pos, stop)
         if dist > MAX_VEHICLE_DISTANCE_M:
             continue
         next_stops = v.get("prochains_arrets") or []
-        if stop_id and stop_id in next_stops:
-            out.append({**v, "distance_m": round(dist)})
+        if (v.get("course") and v["course"] in courses) or (stop_id and stop_id in next_stops):
+            out.append({**v, "distance_m": round(dist), "confirme": True})
             continue
+        if destination_ids and v.get("destination_id"):
+            if v["destination_id"] not in destination_ids:
+                continue  # autre sens
+            # même destination : il reste à savoir s'il est avant ou après l'arrêt
         if direction and len(v["direction"]) > 2 and not v["direction"].isdigit():
             if not _same_direction(v["direction"], direction):
                 continue
@@ -158,7 +165,7 @@ def approaching_vehicles(
             approaching = diff < 100
         if approaching is False:
             continue
-        out.append({**v, "distance_m": round(dist)})
+        out.append({**v, "distance_m": round(dist), "confirme": False})
     out.sort(key=lambda v: v["distance_m"])
     return out[:MAX_VEHICLES]
 
@@ -246,15 +253,27 @@ class TclDepartureSensor(CoordinatorEntity[TclCoordinator], SensorEntity):
         if data.get("vehicules") is None:
             return {"carte_disponible": False}
         stop = data.get("stops", {}).get(self._stop_id)
+        passages = [
+            p
+            for p in data.get("passages", {}).get(self._stop_id, [])
+            if p["ligne"] == self._ligne
+            and (not self._direction or p["direction"] == self._direction)
+        ]
+        base = line_base(self._ligne)
         return {
             "carte_disponible": stop is not None,
             "arret_position": stop,
             "carte_orientation": self._entry.options.get(CONF_MAP_BEARING, 0),
+            # Faux pour le métro et le funiculaire, absents du flux de positions
+            "carte_active": data.get("carte_active", False),
+            "positions_ligne": not data.get("carte_active") or any(line_base(v["ligne"]) == base for v in data["vehicules"]),
             "vehicules": [
-                {k: v[k] for k in ("id", "lat", "lon", "cap", "distance_m", "direction")}
+                {k: v[k] for k in ("id", "lat", "lon", "cap", "distance_m", "confirme")}
                 for v in approaching_vehicles(
                     data["vehicules"], data.get("vehicules_prev", {}), stop,
                     self._ligne, self._direction, self._stop_id,
+                    {p["course"] for p in passages if p.get("course")},
+                    {p["destination_id"] for p in passages if p.get("destination_id")},
                 )
             ],
         }

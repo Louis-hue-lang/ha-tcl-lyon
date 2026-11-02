@@ -7,7 +7,7 @@ tablette murale (testée sur la résolution d'un Echo Show 8 sous LineageOS, 128
 - Configuration 100 % via l'interface : recherche d'arrêt, puis choix des lignes **et des directions**.
 - **Alertes trafic** (travaux, perturbations) affichées sous chaque ligne concernée.
 - **Stations Vélo'v** : vélos disponibles (dont électriques) et places libres.
-- **Carte des bus** : touche une ligne pour ouvrir une carte avec les bus qui **arrivent vers ton
+- **Carte des bus** (bus et trams) : touche une ligne pour ouvrir une carte avec les bus qui **arrivent vers ton
   arrêt**. Le cadrage s'adapte pour en montrer un maximum, et l'orientation de la carte se règle.
 - Un capteur par ligne/direction suivie (valeur = minutes avant le prochain départ).
 - La carte `tcl-departures-card` est chargée automatiquement, sans ressource à ajouter.
@@ -55,7 +55,9 @@ Chaque ligne suivie crée un capteur, par exemple `sensor.arret_tcl_bellecour_c2
 Chaque station Vélo'v crée un capteur `sensor.velo_v_<station>_velos_disponibles`, avec les attributs
 `places`, `capacite`, `velos_electriques`, `velos_mecaniques` et `statut`.
 
-Rafraîchissements : passages et positions des bus toutes les 20 s, Vélo'v toutes les 60 s, alertes toutes les 5 min.
+Rafraîchissements : passages toutes les 20 s, Vélo'v toutes les 60 s, alertes toutes les 5 min.
+Les positions des bus ne sont téléchargées **que pendant que la carte est ouverte**, toutes les 20 s.
+Le flux pèse environ 600 Ko : un téléchargement permanent représenterait près de 3 Go par jour.
 
 ### Carte des bus
 
@@ -65,10 +67,14 @@ Rafraîchissements : passages et positions des bus toutes les 20 s, Vélo'v tout
   tes bus arrivent par le haut de l'écran, par exemple.
 
 Pour sélectionner les bus qui **arrivent vers ton arrêt**, le module utilise, du plus fiable au moins fiable :
-1. la liste des prochains arrêts annoncée par le bus ;
-2. sa destination, comparée à la direction suivie ;
-3. l'évolution de sa distance à l'arrêt depuis la mesure précédente ;
-4. son cap, qui doit pointer vers l'arrêt.
+1. **la course** : la course du véhicule dans le flux SIRI (`DatedVehicleJourneyRef`) a le même format que le champ
+   `coursetheorique` des prochains passages. Si la course figure dans les passages annoncés à ton arrêt, le bus
+   y va forcément et n'y est pas encore passé. Il s'affiche en couleur pleine.
+2. **la destination** (`DestinationRef` / `idtarretdestination`) : les bus qui vont dans l'autre sens sont écartés ;
+3. pour les autres bus du bon sens, plus loin que les passages annoncés : l'évolution de leur distance à l'arrêt,
+   puis leur cap. Ils s'affichent en semi-transparent.
+
+Le métro et le funiculaire ne figurent pas dans le flux de positions. La carte l'indique.
 
 Le cadrage englobe l'arrêt et ces bus. L'arrêt se retrouve donc dans un coin, et le reste de l'écran
 montre la zone d'où ils arrivent. La fenêtre se ferme avec ✕, ou toute seule après 60 s sans contact.

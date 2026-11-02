@@ -48,9 +48,7 @@ const TCL_COLORS = {
 const TCL_DEFAULT = { metroText: "#fff", tram: "#7A2A84", chrono: "#D5007F", bus: "#E4002B" };
 
 function displayLine(ligne) {
-  const l = String(ligne || "").toUpperCase().trim();
-  const m = l.match(/^(.*\d)[AR]$/);
-  return m ? m[1] : l;
+  return String(ligne || "").toUpperCase().trim();
 }
 
 function lineColor(ligne, custom) {
@@ -341,9 +339,17 @@ class TclDeparturesCard extends HTMLElement {
     if (secs > 0) this._mapTimeout = setTimeout(() => this._closeMap(), secs * 1000);
   }
 
+  _activatePositions() {
+    // Les positions ne sont t\u00e9l\u00e9charg\u00e9es que pendant que la carte est ouverte
+    if (this._hass) this._hass.callService("tcl_lyon", "activer_carte", {}).catch(() => {});
+  }
+
   _openMap(entityId) {
     this._mapEntity = entityId;
     this._fitKey = null;
+    this._activatePositions();
+    clearInterval(this._keepAlive);
+    this._keepAlive = setInterval(() => this._activatePositions(), 30000);
     this.shadowRoot.querySelector(".modal").hidden = false;
     this._armTimeout();
     this._updateModal();
@@ -351,6 +357,7 @@ class TclDeparturesCard extends HTMLElement {
 
   _closeMap() {
     clearTimeout(this._mapTimeout);
+    clearInterval(this._keepAlive);
     this._mapEntity = null;
     if (this._map) { this._map.remove(); this._map = null; }
     this._markers = {};
@@ -383,7 +390,13 @@ class TclDeparturesCard extends HTMLElement {
       return;
     }
     const vehicles = a.vehicules || [];
-    msg.textContent = vehicles.length ? "" : "Aucun v\u00e9hicule en approche pour le moment";
+    if (!a.carte_active) {
+      msg.textContent = "Chargement des positions\u2026";
+    }
+    if (a.carte_active) msg.textContent = vehicles.length ? ""
+      : a.positions_ligne === false
+        ? "Pas de position en temps r\u00e9el pour cette ligne (m\u00e9tro, funiculaire\u2026)"
+        : "Aucun v\u00e9hicule en approche pour le moment";
 
     let maplibregl;
     try {
@@ -437,6 +450,7 @@ class TclDeparturesCard extends HTMLElement {
       const arrow = el.querySelector(".arrow");
       arrow.style.display = v.cap == null ? "none" : "";
       arrow.style.transform = `rotate(${(v.cap || 0) - bearing}deg)`;
+      el.style.opacity = v.confirme === false ? "0.6" : "1";
       mk.setLngLat([v.lon, v.lat]);
     }
     for (const id of Object.keys(this._markers)) {

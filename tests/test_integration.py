@@ -1,5 +1,7 @@
 """Tests de bout en bout avec un faux serveur data.grandlyon.com."""
 from datetime import timedelta
+import json
+from pathlib import Path
 import re
 
 import pytest
@@ -85,15 +87,16 @@ def test_parsers():
     assert v[0]["direction"] == "Gare St-Paul"
     s = parse_velov(VELOV["values"][0])
     assert (s["id"], s["velos"], s["places"], s["velos_electriques"]) == ("2010", 7, 13, 3)
-    assert line_base("C3A") == "C3" and line_base("A") == "A" and line_base("JD123") == "JD123"
+    # « 104A » et « 104B » sont de vraies lignes : aucun suffixe ne doit être retiré
+    assert line_base(" 104a ") == "104A" and line_base("A") == "A" and line_base("JD123") == "JD123"
 
 
 def test_approaching():
     vehicles = parse_siri_vm(SIRI)
-    res = approaching_vehicles(vehicles, {}, [45.7605, 4.8597], "C3A", "Gare Saint-Paul", "30170")
+    res = approaching_vehicles(vehicles, {}, [45.7605, 4.8597], "C3", "Gare Saint-Paul", "30170")
     assert {v["id"] for v in res} == {"V1", "V2"}
     # V2 s'éloigne d'après sa position précédente -> exclu
-    res = approaching_vehicles(vehicles, {"V2": [45.763, 4.865]}, [45.7605, 4.8597], "C3A", "Gare Saint-Paul", "30170")
+    res = approaching_vehicles(vehicles, {"V2": [45.763, 4.865]}, [45.7605, 4.8597], "C3", "Gare Saint-Paul", "30170")
     assert {v["id"] for v in res} == {"V1"}
 
 
@@ -138,14 +141,26 @@ async def test_full_flow(hass: HomeAssistant, api_mock):
     await hass.async_block_till_done()
     assert len(entry.options["tracks"]) == 1 and len(entry.options["velov"]) == 1
 
+    # Carte fermée : aucune position téléchargée (seul l'appel de validation des réglages a eu lieu)
+    def siri_calls():
+        return sum(1 for c in api_mock.mock_calls if str(c[1]).startswith(URL_POSITIONS))
+    assert siri_calls() == 1
+    dep = next(s for s in hass.states.async_all("sensor") if s.attributes.get("type") == "depart")
+    assert dep.attributes["vehicules"] == [] and dep.attributes["carte_active"] is False
+
+    # Ouverture de la carte : la carte Lovelace appelle le service
+    await hass.services.async_call(DOMAIN, "activer_carte", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert siri_calls() == 2
+
     states = {s.entity_id: s for s in hass.states.async_all("sensor")}
-    print(list(states))
     dep = next(s for s in states.values() if s.attributes.get("type") == "depart")
     assert dep.state in ("1", "2")
     a = dep.attributes
     assert len(a["departs"]) == 2 and a["departs"][0]["temps_reel"] is True
     assert [x["titre"] for x in a["alertes"]] == ["Travaux Cordeliers", "Info réseau"]
     assert a["carte_disponible"] is True and a["arret_position"] == [45.7605, 4.8597]
+    assert a["carte_active"] is True and a["positions_ligne"] is True
     assert a["carte_orientation"] == 45
     assert {v["id"] for v in a["vehicules"]} == {"V1", "V2"}
     vel = next(s for s in states.values() if s.attributes.get("type") == "velov")
@@ -164,3 +179,31 @@ async def test_card_served(hass: HomeAssistant, hass_client, api_mock):
     assert r.status == 200 and "tcl-departures-card" in await r.text()
     r = await client.get("/tcl_lyon/maplibre/maplibre-gl.js")
     assert r.status == 200
+
+
+REAL_SIRI = json.loads((Path(__file__).parent / "fixtures" / "siri_vm_extrait.json").read_text())
+
+
+def test_real_siri_extract():
+    """Extrait réel du flux SIRI Lite de data.grandlyon.com (2 novembre 2026)."""
+    vehicles = parse_siri_vm(REAL_SIRI)
+    assert len(vehicles) == 12
+    c9 = vehicles[0]
+    assert c9["ligne"] == "C9"
+    assert c9["course"] == "909_C9B-001AP_00101017"  # même format que « coursetheorique »
+    assert c9["destination_id"] == "42030"
+    assert c9["prochains_arrets"] == ["39995"]
+    assert (c9["lat"], c9["lon"], c9["cap"]) == (45.753, 4.870094, 234)
+
+
+def test_real_siri_filtering():
+    """T1 près de la Part-Dieu : seul le tram dont la course est annoncée à l'arrêt est retenu ;
+    les trams de même destination déjà passés (qui s'éloignent) et ceux de l'autre sens sont exclus."""
+    vehicles = parse_siri_vm(REAL_SIRI)
+    stop = [45.7633, 4.8575]
+    res = approaching_vehicles(
+        vehicles, {}, stop, "T1", "Debourg", "11111",
+        courses={"520_T1A-080AM_00402014"}, destination_ids={"46160"},
+    )
+    assert [v["course"] for v in res] == ["520_T1A-080AM_00402014"]
+    assert res[0]["confirme"] is True

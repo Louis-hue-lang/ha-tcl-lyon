@@ -34,14 +34,9 @@ def normalize_text(value: str) -> str:
     return "".join(c for c in value if not unicodedata.combining(c)).lower().strip()
 
 
-_SUFFIX_RE = re.compile(r"^(.*\d)[AR]$")
-
-
 def line_base(ligne: str) -> str:
-    """Code commercial sans le suffixe de sens éventuel : « C13A » -> « C13 », « A » -> « A »."""
-    ligne = (ligne or "").strip().upper()
-    m = _SUFFIX_RE.match(ligne)
-    return m.group(1) if m else ligne
+    """Code de ligne normalisé. Attention : « 104A » et « 104B » sont de vraies lignes distinctes."""
+    return (ligne or "").strip().upper()
 
 
 def _int(value: Any) -> int | None:
@@ -170,6 +165,8 @@ def parse_vehicle(rec: dict[str, Any]) -> dict[str, Any] | None:
     bearing = _float(_first(rec, _VEH_BEARING_KEYS))
     return {
         "prochains_arrets": [],
+        "course": "",
+        "destination_id": "",
         "id": str(_first(rec, _VEH_ID_KEYS) or f"{position[0]:.5f},{position[1]:.5f}"),
         "ligne": str(_first(rec, _VEH_LINE_KEYS) or "").strip(),
         "direction": str(_first(rec, _VEH_DIR_KEYS) or "").strip(),
@@ -200,12 +197,22 @@ def _siri_line(journey: dict[str, Any]) -> str:
     return parts[1] if len(parts) >= 3 else (parts[-1] if parts else "")
 
 
-_DIGITS_RE = re.compile(r"\d{3,}")
+_ID_RE = re.compile(r"(?<=:)\d+(?=:|$)")
 
 
 def _stop_ids(ref: str) -> set[str]:
-    """Identifiants numériques d'un StopPointRef (« ActIV:StopPoint:BP:30170:SYTRAL » -> 30170)."""
-    return set(_DIGITS_RE.findall(ref or ""))
+    """Identifiants numériques d'une référence SIRI (« ActIV:StopArea:SP:962:SYTRAL » -> 962)."""
+    return set(_ID_RE.findall(ref or ""))
+
+
+def _course(ref: str) -> str:
+    """« ActIV:VehicleJourney::924_C24C-131AD_00601022:LOC » -> « 924_C24C-131AD_00601022 »,
+    soit le format du champ « coursetheorique » des prochains passages."""
+    ref = ref or ""
+    if "::" in ref:
+        ref = ref.split("::", 1)[1]
+        ref = ref.rsplit(":", 1)[0] if ":" in ref else ref
+    return ref.strip()
 
 
 def parse_siri_vm(data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -230,6 +237,8 @@ def parse_siri_vm(data: dict[str, Any]) -> list[dict[str, Any]]:
                 if isinstance(call, dict):
                     next_stops |= _stop_ids(_sv(call.get("StopPointRef")))
             bearing = _float(j.get("Bearing"))
+            framed = j.get("FramedVehicleJourneyRef") or {}
+            dest = _stop_ids(_sv(j.get("DestinationRef")))
             vid = _sv(j.get("VehicleRef")) or _sv(act.get("ItemIdentifier")) or f"{lat:.5f},{lon:.5f}"
             out.append(
                 {
@@ -240,6 +249,8 @@ def parse_siri_vm(data: dict[str, Any]) -> list[dict[str, Any]]:
                     "lat": lat,
                     "lon": lon,
                     "prochains_arrets": sorted(next_stops),
+                    "course": _course(_sv(framed.get("DatedVehicleJourneyRef"))),
+                    "destination_id": next(iter(dest), ""),
                 }
             )
     return out
@@ -269,6 +280,8 @@ def parse_passage(rec: dict[str, Any]) -> dict[str, Any]:
         "delai": str(rec.get("delaipassage", "") or "").strip(),
         "heure": str(rec.get("heurepassage", "") or "").strip(),
         "temps_reel": str(rec.get("type", "")).upper() == "E",
+        "course": str(rec.get("coursetheorique", "") or "").strip(),
+        "destination_id": str(rec.get("idtarretdestination", "") or "").strip(),
     }
 
 

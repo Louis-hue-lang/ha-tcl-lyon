@@ -7,7 +7,7 @@ from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
@@ -20,7 +20,7 @@ CARD_URL = "/tcl_lyon/tcl-departures-card.js"
 CARD_FILE = Path(__file__).parent / "frontend" / "tcl-departures-card.js"
 MAPLIBRE_URL = "/tcl_lyon/maplibre"
 MAPLIBRE_DIR = Path(__file__).parent / "frontend" / "maplibre"
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -32,6 +32,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         ]
     )
     add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}")
+
+    async def _activate_map(call: ServiceCall) -> None:
+        """La carte des bus est ouverte : télécharger les positions pendant 60 s."""
+        for entry in hass.config_entries.async_loaded_entries(DOMAIN):
+            await entry.runtime_data.async_activate_positions(60)
+
+    hass.services.async_register(DOMAIN, "activer_carte", _activate_map)
     return True
 
 

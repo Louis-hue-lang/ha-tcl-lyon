@@ -95,5 +95,11 @@
       "no_station": "Aucune station Vélo'v trouvée.",
       "no_vehicle": "Aucune position de véhicule lisible à cette URL."
     }
+  },
+  "services": {
+    "activer_carte": {
+      "name": "Activer la carte des bus",
+      "description": "Télécharge les positions des véhicules pendant 60 secondes. La carte Lovelace l'appelle automatiquement à l'ouverture de la fenêtre."
+    }
   }
 }

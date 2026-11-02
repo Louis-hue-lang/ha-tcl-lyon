@@ -1,6 +1,7 @@
 """Coordinateur de mise à jour : passages (20 s), Vélo'v (60 s), alertes (5 min)."""
 from __future__ import annotations
 
+from datetime import timedelta
 import logging
 from typing import Any
 
@@ -43,6 +44,16 @@ class TclCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._vehicles: list[dict] = []
         self._prev_positions: dict[str, list[float]] = {}
         self._vehicles_failed = False
+        # Les positions (environ 600 Ko) ne sont téléchargées que pendant qu'une carte est ouverte
+        self._positions_until = None
+
+    async def async_activate_positions(self, seconds: int = 60) -> None:
+        """Appelé par la carte Lovelace quand la fenêtre est ouverte (service activer_carte)."""
+        now = dt_util.utcnow()
+        was_active = self._positions_until is not None and now < self._positions_until
+        self._positions_until = now + timedelta(seconds=seconds)
+        if not was_active:
+            await self.async_request_refresh()
 
     async def _refresh_stop_positions(self, stop_ids: set[str]) -> None:
         missing = stop_ids - self._stop_positions.keys()
@@ -111,14 +122,19 @@ class TclCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._refresh_alertes(now)
         await self._refresh_velov(now, velov_ids)
         positions_url = (options.get(CONF_POSITIONS_URL, URL_POSITIONS) or "").strip()
+        map_active = self._positions_until is not None and now < self._positions_until
         if positions_url and stop_ids:
             await self._refresh_stop_positions(stop_ids)
-            await self._refresh_vehicles(positions_url)
+            if map_active:
+                await self._refresh_vehicles(positions_url)
+            else:
+                self._vehicles, self._prev_positions = [], {}
         return {
             "passages": passages,
             "alertes": self._alertes,
             "velov": self._velov,
             "stops": self._stop_positions,
             "vehicules": self._vehicles if positions_url else None,
+            "carte_active": map_active,
             "vehicules_prev": self._prev_positions,
         }
