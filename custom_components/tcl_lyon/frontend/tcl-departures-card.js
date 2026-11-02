@@ -26,18 +26,31 @@ function loadLeaflet() {
   return _leafletPromise;
 }
 
-// OSM France : sans cl\u00e9 et sans Referer. Home Assistant n'en envoie pas aux autres domaines, et
-// CARTO (cl\u00e9 obligatoire), tile.openstreetmap.org et Stadia renvoient alors une image d'erreur.
-const OSMFR_TILES = {
-  url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
-  subdomains: "abc",
-  attribution: "\u00a9 OpenStreetMap contributors, OSM France",
-};
+// Fonds sans cl\u00e9 et sans Referer : Home Assistant n'en envoie pas aux autres domaines, et CARTO
+// (cl\u00e9 obligatoire), tile.openstreetmap.org et Stadia renvoient alors une image d'erreur.
+const esriTiles = (name) => ({
+  url: `https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/${name}/MapServer/tile/{z}/{y}/{x}`,
+  options: { maxNativeZoom: 16 }, // au-del\u00e0, Esri renvoie "Map data not yet available"
+  attribution: "\u00a9 Esri, HERE, Garmin, OpenStreetMap contributors",
+});
 
 const TILES = {
-  // Sombre : un seul filtre CSS sur le calque des tuiles, pas un par tuile
-  dark: { ...OSMFR_TILES, filter: "invert(1) hue-rotate(180deg) brightness(.95) contrast(.85)" },
-  light: OSMFR_TILES,
+  dark: esriTiles("World_Dark_Gray_Base"),
+  light: esriTiles("World_Light_Gray_Base"),
+  osm: {
+    url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
+    options: { subdomains: "abc" },
+    attribution: "\u00a9 OpenStreetMap contributors, OSM France",
+    // Sombre : un seul filtre CSS sur le calque des tuiles, pas un par tuile
+    filter: "invert(1) hue-rotate(180deg) brightness(.95) contrast(.85)",
+  },
+};
+
+const TRAFFIC = {
+  url: "https://data.grandlyon.com/geoserver/wms",
+  layers: "metropole-de-lyon:pvo_patrimoine_voirie.pvotrafic",
+  refreshMs: 180000,
+  attribution: "Trafic : M\u00e9tropole de Lyon",
 };
 
 const TCL_COLORS = {
@@ -124,6 +137,7 @@ const STYLE = `
     width:clamp(40px,8vh,80px); height:clamp(40px,8vh,80px); font-size:clamp(20px,4.4vh,44px); }
   .mapbox { position:relative; flex:1; min-height:0; overflow:hidden; background:#1a1f24; }
   .map { position:absolute; background:#1a1f24; }
+  .leaflet-tile-container img { width:256.5px !important; height:256.5px !important; } /* lignes entre tuiles */
   .mmsg { position:absolute; left:50%; top:1.5vh; transform:translateX(-50%); z-index:1000;
     background:rgba(17,20,24,.88); padding:.8vh 1.4vw; border-radius:10px;
     font-size:clamp(13px,2.4vh,26px); color:#e0e0e0; white-space:nowrap; }
@@ -162,6 +176,7 @@ class TclDeparturesCard extends HTMLElement {
       show_alerts: true,
       popup_timeout: 60,
       map_style: "dark",
+      map_traffic: true,
       colors: {},
       ...config,
     };
@@ -359,6 +374,7 @@ class TclDeparturesCard extends HTMLElement {
   _closeMap() {
     clearTimeout(this._mapTimeout);
     clearInterval(this._keepAlive);
+    clearInterval(this._trafficTimer);
     this._mapEntity = null;
     if (this._map) { this._map.remove(); this._map = null; } // lib\u00e8re tuiles et m\u00e9moire
     this._markers = {};
@@ -425,13 +441,23 @@ class TclDeparturesCard extends HTMLElement {
         zoomControl: false, attributionControl: false, dragging: false, touchZoom: false,
         doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false,
         tap: false, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false,
-        inertia: false, zoomSnap: 0.25,
+        inertia: false, zoomSnap: 1, // zoom entier : pas de lignes entre les tuiles
       }).setView(stop, 16);
       const t = TILES[cfg.map_style] || TILES.dark;
-      L.tileLayer(t.url, { subdomains: t.subdomains, maxZoom: 19, keepBuffer: 0, updateWhenIdle: true })
+      L.tileLayer(t.url, { ...t.options, maxZoom: 19, keepBuffer: 0, updateWhenIdle: true })
         .addTo(this._map);
       if (t.filter) this._map.getPane("tilePane").style.filter = t.filter;
-      $(".attrib").textContent = t.attribution;
+      if (cfg.map_traffic) {
+        // Calque \u00e0 part : au-dessus du fond et hors de son filtre, sous les marqueurs
+        this._map.createPane("traffic").style.zIndex = 300;
+        const traffic = L.tileLayer.wms(TRAFFIC.url, {
+          layers: TRAFFIC.layers, format: "image/png", transparent: true, version: "1.3.0",
+          pane: "traffic", maxZoom: 19, keepBuffer: 0, updateWhenIdle: true,
+        }).addTo(this._map);
+        clearInterval(this._trafficTimer);
+        this._trafficTimer = setInterval(() => traffic.setParams({ t: Date.now() }), TRAFFIC.refreshMs);
+      }
+      $(".attrib").textContent = cfg.map_traffic ? `${t.attribution} \u00b7 ${TRAFFIC.attribution}` : t.attribution;
       this._markers = {};
       this._bearing = bearing;
       L.marker(stop, {
@@ -487,7 +513,7 @@ class TclDeparturesCard extends HTMLElement {
     }
     const pts = [stop, ...vehicles.map((v) => L.latLng(v.lat, v.lon))];
     const pad = VEH_SIZE + 24;
-    for (let z = 17; z >= 10; z -= 0.25) {
+    for (let z = 17; z >= 10; z -= 1) {
       const r = pts.map((p) => rotate(this._map.project(p, z), -bearing));
       const xs = r.map((p) => p.x), ys = r.map((p) => p.y);
       const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);

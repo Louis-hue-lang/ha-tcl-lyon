@@ -116,7 +116,8 @@ Options :
 | `show_alerts` | `true` | Affiche les alertes trafic sous la ligne, à la place du nom de l'arrêt |
 | `colors` | – | Couleurs personnalisées, ex. `{ "86": "#0090d0" }` |
 | `popup_timeout` | `60` | Secondes avant la fermeture automatique de la carte (`0` = jamais) |
-| `map_style` | `dark` | Fond de carte OSM France, sans clé : `dark` (assombri) ou `light` |
+| `map_style` | `dark` | Fond de carte sans clé : `dark` et `light` (Esri, épurés) ou `osm` (OSM France assombri, détaillé) |
+| `map_traffic` | `true` | Affiche l'état du trafic de la Métropole de Lyon sur les grands axes |
 | `map_bearing` | – | Force une orientation, en ignorant le réglage de l'intégration |
 
 Exemple avec une sélection :
