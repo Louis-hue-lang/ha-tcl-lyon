@@ -25,8 +25,8 @@ def _fmt(minutes):
 
 def passages():
     return {"values": [
-        {"id": 30170, "ligne": "C3A", "direction": "Gare Saint-Paul", "delaipassage": "2 min", "heurepassage": _fmt(2), "type": "E"},
-        {"id": 30170, "ligne": "C3A", "direction": "Gare Saint-Paul", "delaipassage": "9 min", "heurepassage": _fmt(9), "type": "T"},
+        {"id": 30170, "ligne": "C3", "direction": "Gare Saint-Paul", "delaipassage": "2 min", "heurepassage": _fmt(2), "type": "E"},
+        {"id": 30170, "ligne": "C3", "direction": "Gare Saint-Paul", "delaipassage": "9 min", "heurepassage": _fmt(9), "type": "T"},
         {"id": 30170, "ligne": "86A", "direction": "La Doua", "delaipassage": "Proche", "heurepassage": _fmt(0), "type": "E"},
     ]}
 
@@ -50,13 +50,21 @@ SIRI = {"Siri": {"ServiceDelivery": {"VehicleMonitoringDelivery": [{"VehicleActi
      "VehicleLocation": {"Longitude": 4.865, "Latitude": 45.762}, "Bearing": 0, "VehicleRef": {"value": "V5"}}},
 ]}]}}}
 
-VELOV = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [4.83, 45.75]},
-    "properties": {"number": 2010, "name": "Bellecour", "address": "Place Bellecour", "available_bikes": 7,
-                   "available_bike_stands": 13, "bike_stands": 20, "status": "OPEN",
-                   "total_stands": {"availabilities": {"electricalBikes": 3, "mechanicalBikes": 4}, "capacity": 20}}}]}
+# Format réel (d'après la librairie data_grand_lyon_ha utilisée par l'intégration officielle)
+VELOV = {"values": [{"number": 2010, "name": "Bellecour", "address": "Place Bellecour", "commune": "Lyon 2",
+    "status": "OPEN", "availability": "Vert", "lat": 45.75, "lng": 4.83, "bike_stands": 20, "available_bikes": 7,
+    "available_bike_stands": 13, "banking": True, "last_update": "2026-04-10T16:30:00",
+    "total_stands": {"availabilities": {"bikes": 7, "electricalBikes": 3, "electricalInternalBatteryBikes": 0,
+                     "electricalRemovableBatteryBikes": 3, "mechanicalBikes": 4, "stands": 13}, "capacity": 20}}]}
 
-ALERTES = {"values": [{"ligne_com": "C3A", "ligne_cli": "C3", "titre": "Travaux Cordeliers", "message": "...",
-                       "debut": "2020-01-01 00:00:00", "fin": "2099-01-01 00:00:00"}]}
+ALERTES = {"values": [
+    {"type": "Information", "ligne_com": "C3", "ligne_cli": "C3", "titre": "Info réseau", "message": "...",
+     "debut": "2020-01-01 00:00:00", "fin": "2099-01-01 00:00:00", "niveauseverite": 30},
+    {"type": "Perturbation", "ligne_com": "C3", "ligne_cli": "C3", "titre": "Travaux Cordeliers", "message": "...",
+     "debut": "2020-01-01 00:00:00", "fin": "2099-01-01 00:00:00", "niveauseverite": 20},
+    {"type": "Perturbation", "ligne_com": "C3", "ligne_cli": "C3", "titre": "Terminée", "message": "...",
+     "debut": "2020-01-01 00:00:00", "fin": "2021-01-01 00:00:00", "niveauseverite": 20},
+]}
 
 
 @pytest.fixture
@@ -75,7 +83,7 @@ def test_parsers():
     assert [x["ligne"] for x in v] == ["C3", "C3", "C3", "C3", "86"]
     assert v[0]["prochains_arrets"] == ["30170"]
     assert v[0]["direction"] == "Gare St-Paul"
-    s = parse_velov(VELOV["features"][0])
+    s = parse_velov(VELOV["values"][0])
     assert (s["id"], s["velos"], s["places"], s["velos_electriques"]) == ("2010", 7, 13, 3)
     assert line_base("C3A") == "C3" and line_base("A") == "A" and line_base("JD123") == "JD123"
 
@@ -108,7 +116,7 @@ async def test_full_flow(hass: HomeAssistant, api_mock):
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"stop_id": "30170"})
     assert result["step_id"] == "lines"
     opts = [o["value"] for o in result["data_schema"].schema["choices"].config["options"]]
-    choice = next(o for o in opts if o.startswith("C3A") and "Saint-Paul" in o)
+    choice = next(o for o in opts if o.startswith("C3\u241f") and "Saint-Paul" in o)
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"choices": [choice]})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -136,7 +144,7 @@ async def test_full_flow(hass: HomeAssistant, api_mock):
     assert dep.state in ("1", "2")
     a = dep.attributes
     assert len(a["departs"]) == 2 and a["departs"][0]["temps_reel"] is True
-    assert a["alertes"][0]["titre"] == "Travaux Cordeliers"
+    assert [x["titre"] for x in a["alertes"]] == ["Travaux Cordeliers", "Info réseau"]
     assert a["carte_disponible"] is True and a["arret_position"] == [45.7605, 4.8597]
     assert a["carte_orientation"] == 45
     assert {v["id"] for v in a["vehicules"]} == {"V1", "V2"}

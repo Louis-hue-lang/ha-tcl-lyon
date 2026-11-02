@@ -91,8 +91,10 @@ def active_alertes(alertes: list[dict] | None, ligne: str) -> list[dict]:
         if (debut and debut > now) or (fin and fin < now):
             continue
         out.append(
-            {k: a[k] for k in ("titre", "message", "type", "cause", "debut", "fin")}
+            {k: a[k] for k in ("titre", "message", "type", "cause", "debut", "fin", "severite")}
         )
+    # Les perturbations (sévérité 20) avant les simples informations (30, 40)
+    out.sort(key=lambda x: (x["severite"], x["debut"]))
     return out
 
 

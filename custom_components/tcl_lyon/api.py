@@ -17,8 +17,6 @@ from .const import URL_ALERTES, URL_ARRETS, URL_PASSAGES, URL_VELOV
 
 _LOGGER = logging.getLogger(__name__)
 
-PAGE_SIZE = 1000
-MAX_PAGES = 60
 TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 
@@ -63,6 +61,7 @@ def parse_alerte(rec: dict[str, Any]) -> dict[str, Any]:
         "lignes": sorted(lignes),
         "mode": str(rec.get("mode", "") or ""),
         "type": str(rec.get("type", "") or ""),
+        "severite": _int(rec.get("niveauseverite")) or 99,
         "cause": str(rec.get("cause", "") or ""),
         "titre": str(rec.get("titre", "") or "").strip(),
         "message": str(rec.get("message", "") or "").strip(),
@@ -298,25 +297,9 @@ class TclApi:
             raise TclError(f"Erreur réseau : {err}") from err
 
     async def _get_all(self, url: str, params: dict[str, Any] | None = None) -> list[dict]:
-        """Récupère toutes les pages d'un jeu de données."""
-        results: list[dict] = []
-        start = 1
-        first_seen = None
-        for _ in range(MAX_PAGES):
-            page_params = {**(params or {}), "maxfeatures": PAGE_SIZE, "start": start}
-            data = await self._get_json(url, page_params)
-            values = data.get("values", []) if isinstance(data, dict) else []
-            if not values:
-                break
-            marker = repr(values[0])
-            if marker == first_seen:  # la pagination est ignorée : on s'arrête
-                break
-            first_seen = first_seen or marker
-            results.extend(values)
-            if len(values) < PAGE_SIZE:
-                break
-            start += PAGE_SIZE
-        return results
+        """Tous les enregistrements d'un jeu de données (maxfeatures=-1 : une seule requête)."""
+        data = await self._get_json(url, {**(params or {}), "maxfeatures": -1})
+        return data.get("values", []) if isinstance(data, dict) else []
 
     async def async_validate(self) -> None:
         """Vérifie les identifiants et l'accès au jeu de données temps réel."""
@@ -386,7 +369,7 @@ class TclApi:
         return alertes
 
     async def async_get_velov(self) -> list[dict[str, Any]]:
-        data = await self._get_json(URL_VELOV, {}, auth=False)
+        data = await self._get_json(URL_VELOV, {"maxfeatures": -1}, auth=False)
         raw = data.get("features") or data.get("values") or [] if isinstance(data, dict) else data
         stations = [parse_velov(r) for r in raw if isinstance(r, dict)]
         return [s for s in stations if s["id"]]

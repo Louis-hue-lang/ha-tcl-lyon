@@ -129,6 +129,21 @@ par l'éditeur YAML du tableau, ou ouvre l'URL avec `?edit=1`.
   **Home Assistant Companion** (Paramètres → Companion app → *Garder l'écran allumé*).
 - Avec Fully Kiosk, active *Keep Screen On*, *Start on boot* et la réduction de luminosité la nuit.
 
+## Et l'intégration officielle « Data Grand Lyon » ?
+
+Home Assistant intègre aussi, depuis peu, une intégration officielle [Data Grand Lyon](https://www.home-assistant.io/integrations/data_grand_lyon).
+Les deux peuvent coexister. Ce module va plus loin pour un écran de départs :
+
+| | Data Grand Lyon (officielle) | Ce module |
+|---|---|---|
+| Prochains départs | 3, par arrêt et par ligne | jusqu'à 6, par ligne et direction |
+| Rafraîchissement | 5 min | 20 s, avec compte à rebours entre deux mises à jour |
+| Vélo'v | ✅ | ✅ |
+| Parcs relais | ✅ | ❌ |
+| Alertes trafic (TCL et scolaires) | ❌ | ✅ |
+| Carte des bus en approche | ❌ | ✅ |
+| Carte plein écran | ❌ | ✅ |
+
 ## Notes
 
 - La carte utilise [MapLibre GL](https://maplibre.org/) (licence BSD), fourni avec le module.

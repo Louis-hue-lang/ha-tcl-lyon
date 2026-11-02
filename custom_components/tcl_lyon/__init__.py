@@ -20,7 +20,7 @@ CARD_URL = "/tcl_lyon/tcl-departures-card.js"
 CARD_FILE = Path(__file__).parent / "frontend" / "tcl-departures-card.js"
 MAPLIBRE_URL = "/tcl_lyon/maplibre"
 MAPLIBRE_DIR = Path(__file__).parent / "frontend" / "maplibre"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
