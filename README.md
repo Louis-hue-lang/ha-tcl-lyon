@@ -111,9 +111,9 @@ Options :
 | `max_departures` | `3` | Nombre de départs par ligne |
 | `fullscreen` | `true` | Recouvre tout l'écran, y compris la barre et le menu HA |
 | `show_clock` | `true` | Affiche l'heure |
-| `show_stop` | `true` | Affiche le nom de l'arrêt sous la direction |
+| `show_stop` | `true` | Affiche l'arrêt devant la direction : « arrêt > direction » |
 | `hide_empty` | `false` | Masque les lignes sans départ prévu |
-| `show_alerts` | `true` | Affiche les alertes trafic sous la ligne, à la place du nom de l'arrêt |
+| `show_alerts` | `true` | Affiche les alertes trafic sous « arrêt > direction » |
 | `colors` | – | Couleurs personnalisées, ex. `{ "86": "#0090d0" }` |
 | `popup_timeout` | `60` | Secondes avant la fermeture automatique de la carte (`0` = jamais) |
 | `map_style` | `dark` | Fond de carte sans clé : `dark` et `light` (Esri, épurés) ou `osm` (OSM France assombri, détaillé) |
