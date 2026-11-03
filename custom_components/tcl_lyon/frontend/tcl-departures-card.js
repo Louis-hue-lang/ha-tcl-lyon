@@ -105,7 +105,11 @@ const STYLE = `
   .info { flex:1; min-width:0; }
   .dir { font-size:clamp(20px,4.8vh,52px); font-weight:500;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .dir .sep { color:#9aa4ae; margin:0 .5em; }
+  /* Arr\u00eat > direction : l'arr\u00eat raccourcit d'abord, la direction reste lisible */
+  .dir.route { display:flex; }
+  .dir.route > span { min-width:0; overflow:hidden; text-overflow:ellipsis; flex:none; max-width:100%; }
+  .dir.route > .from { flex:0 1 auto; }
+  .dir.route > .sep { flex:none; color:#9aa4ae; margin:0 .5em; }
   .stop, .alert { font-size:clamp(13px,2.6vh,28px); color:#9aa4ae; margin-top:.4vh;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .alert { color:#ffab40; }
@@ -284,10 +288,11 @@ class TclDeparturesCard extends HTMLElement {
       const sub = alertes.length
         ? `<div class="alert">\u26a0 ${esc(alertes.map((x) => x.titre || x.message).join(" \u00b7 "))}</div>`
         : "";
-      const stop = cfg.show_stop && a.arret ? `${esc(a.arret)}<span class="sep">&gt;</span>` : "";
+      const stop = cfg.show_stop && a.arret
+        ? `<span class="from">${esc(a.arret)}</span><span class="sep">&gt;</span>` : "";
       return `<div class="row" data-map="${esc(st.entity_id)}">` +
         `<div class="badge" style="background:${lineColor(a.ligne, cfg.colors)}">${esc(displayLine(a.ligne))}</div>` +
-        `<div class="info"><div class="dir">${stop}${esc(a.direction || "Toutes directions")}</div>${sub}</div>` +
+        `<div class="info"><div class="dir route">${stop}<span>${esc(a.direction || "Toutes directions")}</span></div>${sub}</div>` +
         `<div class="times">${times}</div></div>`;
     }).join("");
 
