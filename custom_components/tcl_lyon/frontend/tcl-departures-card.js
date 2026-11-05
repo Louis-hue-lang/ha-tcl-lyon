@@ -89,7 +89,7 @@ const STYLE = `
     font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
     display:flex; flex-direction:column; padding:2.2vh 2.5vw; gap:1.6vh; }
   .wrap.full { position:fixed; inset:0; z-index:9; width:100vw; height:100vh; }
-  .wrap.inline { position:relative; border-radius:12px; min-height:300px; }
+  .wrap.inline { position:relative; height:100%; }
   header { display:flex; align-items:baseline; justify-content:space-between; }
   h1 { margin:0; font-size:clamp(20px,4.2vh,44px); font-weight:500; }
   .clock { font-size:clamp(28px,7vh,72px); font-weight:300; }
@@ -165,6 +165,13 @@ const STYLE = `
   .stopmk .lbl { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:6px;
     background:#ffd54a; color:#111; border-radius:6px; padding:1px 6px;
     font:700 15px Roboto, Arial, sans-serif; white-space:nowrap; }
+`;
+
+// Hors plein écran (tableau de bord avec barre latérale, téléphone) : la carte remplit la place
+// sous l'en-tête de HA et ses tailles suivent son propre cadre au lieu de l'écran entier.
+const INLINE_STYLE = STYLE.replace(/(\d)vh/g, "$1cqmin").replace(/(\d)vw/g, "$1cqw") + `
+  :host { container-type:size; height:calc(100dvh - var(--header-height, 56px) - env(safe-area-inset-top, 0px));
+    min-height:300px; }
 `;
 
 const VEH_SIZE = 42;
@@ -332,7 +339,7 @@ class TclDeparturesCard extends HTMLElement {
     const cfg = this._config;
     this.shadowRoot.innerHTML = `
       <link rel="stylesheet" href="${LEAFLET_BASE}/leaflet.css">
-      <style>${STYLE}</style>
+      <style>${cfg.fullscreen ? STYLE : INLINE_STYLE}</style>
       <div class="wrap ${cfg.fullscreen ? "full" : "inline"}">
         <header><h1>${esc(cfg.title || "")}</h1>${cfg.show_clock ? `<div class="clock"></div>` : ""}</header>
         <div class="list"></div>
