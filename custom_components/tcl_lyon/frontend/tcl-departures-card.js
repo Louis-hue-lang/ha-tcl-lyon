@@ -168,10 +168,10 @@ const STYLE = `
 `;
 
 // Hors plein écran (tableau de bord avec barre latérale, téléphone) : la carte remplit la place
-// sous l'en-tête de HA et ses tailles suivent son propre cadre au lieu de l'écran entier.
+// laissée par HA (hauteur calculée par _fit) et ses tailles suivent son propre cadre au lieu de l'écran entier.
 const INLINE_STYLE = STYLE.replace(/(\d)vh/g, "$1cqmin").replace(/(\d)vw/g, "$1cqw") + `
-  :host { container-type:size; height:calc(100dvh - var(--header-height, 56px) - env(safe-area-inset-top, 0px));
-    min-height:300px; }
+  :host { container-type:size; min-height:300px;
+    height:var(--tcl-inline-h, calc(100dvh - var(--header-height, 56px) - env(safe-area-inset-top, 0px))); }
 `;
 
 const VEH_SIZE = 42;
@@ -215,12 +215,26 @@ class TclDeparturesCard extends HTMLElement {
 
   connectedCallback() {
     // Compte \u00e0 rebours : le DOM n'est touch\u00e9 que si le texte affich\u00e9 change.
-    this._timer = setInterval(() => this._render(false), 15000);
+    this._timer = setInterval(() => { this._fit(); this._render(false); }, 15000);
+    this._onResize = () => this._fit();
+    window.addEventListener("resize", this._onResize);
+    requestAnimationFrame(this._onResize);
   }
 
   disconnectedCallback() {
     clearInterval(this._timer);
+    window.removeEventListener("resize", this._onResize);
     this._closeMap();
+  }
+
+  // Hors plein \u00e9cran, la carte descend jusqu'au bas de l'\u00e9cran depuis l\u00e0 o\u00f9 elle commence :
+  // sous l'en-t\u00eate de HA, ou tout l'\u00e9cran quand un mode kiosque (Echo Show) le masque.
+  _fit() {
+    if (this._config.fullscreen) return;
+    const r = this.getBoundingClientRect();
+    if (!r.width) return;
+    const h = `${Math.max(300, Math.floor(window.innerHeight - r.top - window.scrollY))}px`;
+    if (this.style.getPropertyValue("--tcl-inline-h") !== h) this.style.setProperty("--tcl-inline-h", h);
   }
 
   getCardSize() { return 8; }

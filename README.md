@@ -109,7 +109,7 @@ Options :
 | `entities` | toutes | Liste de capteurs à afficher |
 | `sort` | `time` | `time` (prochain départ d'abord) ou `config` (ordre de `entities`) |
 | `max_departures` | `3` | Nombre de départs par ligne |
-| `fullscreen` | `true` | Recouvre tout l'écran, y compris la barre et le menu HA. Avec `false`, la carte remplit la vue (panneau) sous l'en-tête et garde la navigation |
+| `fullscreen` | `true` | Recouvre tout l'écran, y compris la barre et le menu HA. Avec `false`, la carte descend jusqu'au bas de l'écran sous l'en-tête et garde la navigation (plein écran de fait quand un mode kiosque masque l'en-tête) |
 | `show_clock` | `true` | Affiche l'heure |
 | `show_stop` | `true` | Affiche l'arrêt devant la direction : « arrêt > direction » |
 | `hide_empty` | `false` | Masque les lignes sans départ prévu |
